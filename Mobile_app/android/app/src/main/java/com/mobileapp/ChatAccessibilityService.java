@@ -79,6 +79,7 @@ public class ChatAccessibilityService extends AccessibilityService {
     }
 
     /**
+     * ENTRY POINT OF ACCESSIBILITY SERVICE
      * This is the main callback for all accessibility events.
      * We care about TYPE_VIEW_TEXT_CHANGED and TYPE_VIEW_CLICKED events.
      */
@@ -101,7 +102,7 @@ public class ChatAccessibilityService extends AccessibilityService {
             endCurrentSession();
             startNewSession();
         }
-
+        Log.d(TAG, "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH");
         switch (eventType) {
             case AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED:
             handleTextChanged(event, currentTime);
@@ -124,8 +125,8 @@ public class ChatAccessibilityService extends AccessibilityService {
                 if (lastTypedMessage != null) {
                     currentMessages.add(lastTypedMessage);
                 }
-                endCurrentSession();
-                startNewSession();
+                // endCurrentSession();
+                // startNewSession();
 
                 inputJustCleared = false; // reset flag
                 lastTypedMessage = null;
