@@ -11,7 +11,7 @@ export default function App() {
   useEffect(() => {
     const eventEmitter = new NativeEventEmitter(ChatAccessibilityModule);
     const subscription = eventEmitter.addListener(
-      "onChatMessage",
+      "ChatSessionEvent",
       async (text) => {
         console.log("Chat text received:", text);
         await axios.post("http://127.0.0.1:8000/chat-text-data", {
