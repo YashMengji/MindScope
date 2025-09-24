@@ -34,6 +34,7 @@ public class ChatAccessibilityService extends AccessibilityService {
     // Last message typed in the EditText, used to report "Sent" messages
     private String lastTypedMessage = null;
     boolean inputJustCleared = false;
+    private long lastClearTimestamp = 0;
     private static final long SESSION_TIMEOUT = 20 * 1000; // 3 mins in ms
     private long sessionStartTime = -1;
     private long lastMessageTime = -1;
@@ -64,7 +65,7 @@ public class ChatAccessibilityService extends AccessibilityService {
         AccessibilityServiceInfo info = getServiceInfo();
         // info.packageNames = new String[]{"com.whatsapp"};
         // Listen for both text changes and clicks
-        info.eventTypes = AccessibilityEvent.TYPE_VIEW_CLICKED | AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED; 
+        info.eventTypes = AccessibilityEvent.TYPE_VIEW_CLICKED | AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED | AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED | AccessibilityEvent.TYPE_VIEW_SCROLLED; 
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC;
         info.flags = AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS |
                      AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
@@ -78,15 +79,11 @@ public class ChatAccessibilityService extends AccessibilityService {
         Log.d(TAG, "onInterrupt called.");
     }
 
-    /**
-     * This is the main callback for all accessibility events.
-     * We care about TYPE_VIEW_TEXT_CHANGED and TYPE_VIEW_CLICKED events.
-     */
+    // this method uses only two events to identify typing and whether send button is clicked
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
         if (event == null) return;
 
-        
         int eventType = event.getEventType();
 
         // Start session if not started
@@ -102,166 +99,102 @@ public class ChatAccessibilityService extends AccessibilityService {
             startNewSession();
         }
 
-        switch (eventType) {
-            case AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED:
-            handleTextChanged(event, currentTime);
-            // Track when input text becomes empty after typing something
-            List<CharSequence> eventText = event.getText();
-            String newText = "";
-            if (eventText != null && !eventText.isEmpty()) {
-                newText = eventText.get(0).toString();
-            }
-            if (lastTypedMessage != null && newText.isEmpty()) {
-                Log.d(TAG, "Input cleared → possible send");
-                inputJustCleared = true; // flag for later
-            }
-            break;
+        if (eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            String packageName = (event.getPackageName() != null) ? event.getPackageName().toString() : "";
 
-            case AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED:
-            // If window changed right after input cleared → user pressed send
-            if (inputJustCleared) {
-                Log.d(TAG, "Send button detected → Ending session.");
-                if (lastTypedMessage != null) {
-                    currentMessages.add(lastTypedMessage);
+            Log.d(TAG, "Window state changed: " + packageName);
+
+            // Chat app opened
+            if (packageName.equals("com.whatsapp")) {  // replace with target app
+                if (sessionStartTime == -1) {
+                    startNewSession();  
+                    Log.d(TAG, "Session started → " + packageName);
                 }
-                endCurrentSession();
-                startNewSession();
+            } 
+            // Chat app closed (switched away)
+            else {
+                if (sessionStartTime != -1) {
+                    endCurrentSession();  
+                    Log.d(TAG, "Session ended (app switched) → " + packageName);
+                }
+            }
+        }
 
-                inputJustCleared = false; // reset flag
+        if(eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED){
+            handleTextChanged(event, currentTime);
+        }
+
+        if(eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
+            // If window changed right after input cleared → user pressed send
+            if(lastTypedMessage != null) {
+                Log.d(TAG, "Send button detected");
+                currentMessages.add(lastTypedMessage);
+                // endCurrentSession();
                 lastTypedMessage = null;
             }
-            break;
         }
     }
 
-    /**
-     * Handles text change events, storing the last typed message.
-     * This method is generic and looks for any EditText node.
-     *
-     * @param event The accessibility event.
-     */
+    // this method handles text change in real time
     private void handleTextChanged(AccessibilityEvent event, long currentTime) {
         AccessibilityNodeInfo nodeInfo = event.getSource();
         if (nodeInfo != null && nodeInfo.getClassName() != null &&
             nodeInfo.getClassName().toString().contains("EditText")) {
             if (nodeInfo.getText() != null) {
                 lastTypedMessage = nodeInfo.getText().toString();
+                // currentMessages.add(lastTypedMessage);
                 lastMessageTime = currentTime;
                 Log.d(TAG, "Typing... : " + lastTypedMessage);
             }
         }
     }
 
-    /**
-     Handles view click events and checks if the clicked view is a "send" button.
-     This method uses a heuristic based on content description.
-    */
-    // private void handleViewClicked(AccessibilityEvent event) {
-    //     AccessibilityNodeInfo source = event.getSource();
-    //     if (source == null) {
-    //         return;
-    //     }
-
-    //     boolean isSendButton = false;
-
-    //     // Heuristic 1: Check class name
-    //     String className = source.getClassName() != null ? source.getClassName().toString() : "";
-    //     if (BUTTON_CLASSES.contains(className)) {
-    //         // Heuristic 2: Check content description
-    //         CharSequence contentDescription = source.getContentDescription();
-    //         if (contentDescription != null) {
-    //             String lowerCaseDescription = contentDescription.toString().toLowerCase(Locale.US);
-    //             for (String keyword : SEND_KEYWORDS) {
-    //                 if (lowerCaseDescription.contains(keyword)) {
-    //                     isSendButton = true;
-    //                     break;
-    //                 }
-    //             }
-    //         }
-    //         if (isSendButton) {
-    //             Log.d(TAG, "Send button identified by class name and content description.");
-    //         }
-    //     }
-
-    //     // If not already identified, check text content as an alternative.
-    //     if (!isSendButton) {
-    //         CharSequence text = source.getText();
-    //         if (text != null) {
-    //             String lowerCaseText = text.toString().toLowerCase(Locale.US);
-    //             for (String keyword : SEND_KEYWORDS) {
-    //                 if (lowerCaseText.contains(keyword)) {
-    //                     isSendButton = true;
-    //                     break;
-    //                 }
-    //             }
-    //         }
-    //         if (isSendButton) {
-    //             Log.d(TAG, "Send button identified by text content.");
-    //         }
-    //     }
-
-    //     // If not identified, check resource ID as another alternative.
-    //     if (!isSendButton) {
-    //         String resourceId = source.getViewIdResourceName();
-    //         if (resourceId != null) {
-    //             String lowerCaseId = resourceId.toLowerCase(Locale.US);
-    //             for (String keyword : ID_KEYWORDS) {
-    //                 if (lowerCaseId.contains(keyword)) {
-    //                     isSendButton = true;
-    //                     break;
-    //                 }
-    //             }
-    //         }
-    //         if (isSendButton) {
-    //             Log.d(TAG, "Send button identified by resource ID keyword.");
-    //         }
-    //     }
-        
-    //     // Final action if any heuristic matched
-    //     if (isSendButton) {
-    //         if (lastTypedMessage != null && !lastTypedMessage.isEmpty()) {
-    //             emitLabeled("[Sent]", lastTypedMessage);
-    //             lastTypedMessage = null; // Clear the message after sending
-    //         }
-    //     }
-    // }
-
-
-    /**
-     * Logs the message to Logcat and emits to React Native, with a debounce to prevent duplicates.
-     */
+    // this function is used to start a new session when a chat app is opened 
     private void startNewSession() {
         sessionStartTime = System.currentTimeMillis();
         lastMessageTime = sessionStartTime;
-        currentMessages.clear();
+        currentMessages = new ArrayList<>();
         Log.d(TAG, "New session started at " + sessionStartTime);
     }
 
+    // this function is used to end the session after timeout or when the chat app is closed
     private void endCurrentSession() {
         if (sessionStartTime == -1) return;
 
+        if (currentMessages == null || currentMessages.isEmpty()) {
+            Log.d(TAG, "No messages in this session, skipping send.");
+            sessionStartTime = -1;
+            currentMessages = new ArrayList<>(); // reset safely
+            return;
+        }
+
         long endTime = System.currentTimeMillis();
 
-        // Encapsulate data
-        WritableMap sessionData = Arguments.createMap();
-        sessionData.putDouble("startTimestamp", sessionStartTime);
-        sessionData.putDouble("endTimestamp", endTime);
+        try {
+            // Encapsulate data
+            WritableMap sessionData = Arguments.createMap();
+            sessionData.putDouble("startTimestamp", sessionStartTime);
+            sessionData.putDouble("endTimestamp", endTime);
 
-        WritableArray messages = Arguments.createArray();
-        for (String msg : currentMessages) {
-            messages.pushString(msg);
+            WritableArray messages = Arguments.createArray();
+            for (String msg : currentMessages) {
+                messages.pushString(msg);
+            }
+            sessionData.putArray("messages", messages);
+
+            sendEventToReactNative(sessionData);
+
+            Log.d(TAG, "Session ended: " + sessionData.toString());
+        }catch (Exception e) {
+            Log.e(TAG, "Error ending session: " + e.getMessage(), e);
+        } finally {
+            // Reset
+            sessionStartTime = -1;
+            currentMessages.clear();
         }
-        sessionData.putArray("messages", messages);
-
-        sendEventToReactNative(sessionData);
-
-        Log.d(TAG, "Session ended: " + sessionData.toString());
-
-        // Reset
-        sessionStartTime = -1;
-        currentMessages.clear();
     }
 
+    // this is used to send the session object(data) to react native app
     private void sendEventToReactNative(WritableMap sessionData) {
         if (reactContext != null) {
             reactContext
