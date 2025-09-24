@@ -79,7 +79,15 @@ public class ChatAccessibilityService extends AccessibilityService {
         Log.d(TAG, "onInterrupt called.");
     }
 
+<<<<<<< HEAD
     // this method uses only two events to identify typing and whether send button is clicked
+=======
+    /**
+     * ENTRY POINT OF ACCESSIBILITY SERVICE
+     * This is the main callback for all accessibility events.
+     * We care about TYPE_VIEW_TEXT_CHANGED and TYPE_VIEW_CLICKED events.
+     */
+>>>>>>> fe308a6c77c49b963a74923346996b2b1c50ec13
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
         if (event == null) return;
@@ -98,9 +106,27 @@ public class ChatAccessibilityService extends AccessibilityService {
             endCurrentSession();
             startNewSession();
         }
+<<<<<<< HEAD
 
         if (eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             String packageName = (event.getPackageName() != null) ? event.getPackageName().toString() : "";
+=======
+        Log.d(TAG, "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH");
+        switch (eventType) {
+            case AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED:
+            handleTextChanged(event, currentTime);
+            // Track when input text becomes empty after typing something
+            List<CharSequence> eventText = event.getText();
+            String newText = "";
+            if (eventText != null && !eventText.isEmpty()) {
+                newText = eventText.get(0).toString();
+            }
+            if (lastTypedMessage != null && newText.isEmpty()) {
+                Log.d(TAG, "Input cleared → possible send");
+                inputJustCleared = true; // flag for later
+            }
+            break;
+>>>>>>> fe308a6c77c49b963a74923346996b2b1c50ec13
 
             Log.d(TAG, "Window state changed: " + packageName);
 
@@ -110,6 +136,7 @@ public class ChatAccessibilityService extends AccessibilityService {
                     startNewSession();  
                     Log.d(TAG, "Session started → " + packageName);
                 }
+<<<<<<< HEAD
             } 
             // Chat app closed (switched away)
             else {
@@ -119,6 +146,10 @@ public class ChatAccessibilityService extends AccessibilityService {
                 }
             }
         }
+=======
+                // endCurrentSession();
+                // startNewSession();
+>>>>>>> fe308a6c77c49b963a74923346996b2b1c50ec13
 
         if(eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED){
             handleTextChanged(event, currentTime);
