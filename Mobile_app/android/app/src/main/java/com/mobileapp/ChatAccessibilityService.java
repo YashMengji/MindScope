@@ -33,11 +33,17 @@ public class ChatAccessibilityService extends AccessibilityService {
 
     // Last message typed in the EditText, used to report "Sent" messages
     private String lastTypedMessage = null;
-    boolean inputJustCleared = false;
+    boolean isChatAppForeground = false;
     private long lastClearTimestamp = 0;
     private static final long SESSION_TIMEOUT = 20 * 1000; // 3 mins in ms
     private long sessionStartTime = -1;
     private long lastMessageTime = -1;
+    private static final String TARGET_APP = "com.whatsapp";
+    private static final Set<String> IGNORE_PACKAGES = new HashSet<>(Arrays.asList(
+        "com.google.android.inputmethod.latin",   // Gboard
+        "com.samsung.android.honeyboard",         // Samsung keyboard
+        "com.android.systemui"                    // System UI, optional
+    ));
 
     private List<String> currentMessages = new ArrayList<>();
 
@@ -65,7 +71,8 @@ public class ChatAccessibilityService extends AccessibilityService {
         AccessibilityServiceInfo info = getServiceInfo();
         // info.packageNames = new String[]{"com.whatsapp"};
         // Listen for both text changes and clicks
-        info.eventTypes = AccessibilityEvent.TYPE_VIEW_CLICKED | AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED | AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED | AccessibilityEvent.TYPE_VIEW_SCROLLED; 
+        info.eventTypes = AccessibilityEvent.TYPE_VIEW_CLICKED | AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED | AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED | AccessibilityEvent.TYPE_VIEW_SCROLLED|AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED;
+
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC;
         info.flags = AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS |
                      AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
@@ -79,88 +86,59 @@ public class ChatAccessibilityService extends AccessibilityService {
         Log.d(TAG, "onInterrupt called.");
     }
 
-<<<<<<< HEAD
     // this method uses only two events to identify typing and whether send button is clicked
-=======
-    /**
-     * ENTRY POINT OF ACCESSIBILITY SERVICE
-     * This is the main callback for all accessibility events.
-     * We care about TYPE_VIEW_TEXT_CHANGED and TYPE_VIEW_CLICKED events.
-     */
->>>>>>> fe308a6c77c49b963a74923346996b2b1c50ec13
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
         if (event == null) return;
 
         int eventType = event.getEventType();
-
-        // Start session if not started
-        if (sessionStartTime == -1) {
-            startNewSession();
-        }
-
         long currentTime = System.currentTimeMillis();
 
         // Check if session expired
-        if (currentTime - sessionStartTime >= SESSION_TIMEOUT) {
+        if (sessionStartTime != -1 && (currentTime - sessionStartTime >= SESSION_TIMEOUT)) {
             endCurrentSession();
-            startNewSession();
-        }
-<<<<<<< HEAD
+            Log.d(TAG, "Session ended due to timeout");
 
+            // Restart only if WhatsApp is still the foreground app
+            if (isChatAppForeground) {
+                startNewSession();
+                Log.d(TAG, "New session started due to timeout → WhatsApp still open");
+            }
+        }
+
+        // this event is used to start a session if whatsapp is opened and end if there is a switch operation to any other app
         if (eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             String packageName = (event.getPackageName() != null) ? event.getPackageName().toString() : "";
-=======
-        Log.d(TAG, "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH");
-        switch (eventType) {
-            case AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED:
-            handleTextChanged(event, currentTime);
-            // Track when input text becomes empty after typing something
-            List<CharSequence> eventText = event.getText();
-            String newText = "";
-            if (eventText != null && !eventText.isEmpty()) {
-                newText = eventText.get(0).toString();
-            }
-            if (lastTypedMessage != null && newText.isEmpty()) {
-                Log.d(TAG, "Input cleared → possible send");
-                inputJustCleared = true; // flag for later
-            }
-            break;
->>>>>>> fe308a6c77c49b963a74923346996b2b1c50ec13
 
             Log.d(TAG, "Window state changed: " + packageName);
 
-            // Chat app opened
-            if (packageName.equals("com.whatsapp")) {  // replace with target app
+            if (TARGET_APP.equals(packageName)) {
+                // Start session when WhatsApp opens
+                isChatAppForeground = true;
                 if (sessionStartTime == -1) {
-                    startNewSession();  
+                    startNewSession();
                     Log.d(TAG, "Session started → " + packageName);
                 }
-<<<<<<< HEAD
-            } 
-            // Chat app closed (switched away)
-            else {
+            } else if (!IGNORE_PACKAGES.contains(packageName)) {
+                // End session only when leaving WhatsApp for some other real app
                 if (sessionStartTime != -1) {
-                    endCurrentSession();  
-                    Log.d(TAG, "Session ended (app switched) → " + packageName);
+                    endCurrentSession();
+                    Log.d(TAG, "Session ended (switched to " + packageName + ")");
                 }
+                isChatAppForeground = false;
             }
         }
-=======
-                // endCurrentSession();
-                // startNewSession();
->>>>>>> fe308a6c77c49b963a74923346996b2b1c50ec13
 
+        // this event is used to capture real time text message changes in the input 
         if(eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED){
             handleTextChanged(event, currentTime);
         }
 
+        // this event is used to detect that a message is sent
         if(eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
-            // If window changed right after input cleared → user pressed send
             if(lastTypedMessage != null) {
                 Log.d(TAG, "Send button detected");
                 currentMessages.add(lastTypedMessage);
-                // endCurrentSession();
                 lastTypedMessage = null;
             }
         }
@@ -173,7 +151,6 @@ public class ChatAccessibilityService extends AccessibilityService {
             nodeInfo.getClassName().toString().contains("EditText")) {
             if (nodeInfo.getText() != null) {
                 lastTypedMessage = nodeInfo.getText().toString();
-                // currentMessages.add(lastTypedMessage);
                 lastMessageTime = currentTime;
                 Log.d(TAG, "Typing... : " + lastTypedMessage);
             }
