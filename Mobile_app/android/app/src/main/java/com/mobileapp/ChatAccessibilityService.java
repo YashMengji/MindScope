@@ -86,6 +86,7 @@ public class ChatAccessibilityService extends AccessibilityService {
         Log.d(TAG, "onInterrupt called.");
     }
 
+    // ENTRY POINT OF ACCESSIBILITY SERVICE
     // this method uses only two events to identify typing and whether send button is clicked
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
@@ -202,6 +203,7 @@ public class ChatAccessibilityService extends AccessibilityService {
         }
     }
 
+    // EXIT POINT
     // this is used to send the session object(data) to react native app
     private void sendEventToReactNative(WritableMap sessionData) {
         if (reactContext != null) {
