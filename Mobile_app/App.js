@@ -2,9 +2,11 @@ import React, { useEffect } from "react";
 import { NativeEventEmitter, NativeModules } from "react-native";
 import axios from "axios";
 import AppNavigator from "./src/navigation/AppNavigator";
+import { LOCAL_IP, API_PORT } from '@env';
 
 const { ChatAccessibilityModule } = NativeModules;
 
+// "test": "npm start && npx react-native run-android && adb logcat | ForEach-Object { if ($_ -like "ChatAccessibilityService") { $_ } }",
 export default function App() {
   console.log("This is log from app.js");
 
@@ -29,7 +31,7 @@ export default function App() {
           try {
             // Send the entire session data to FastAPI
             const response = await axios.post(
-              "http://127.0.0.1:8000/chat-text-data",
+              `http://${LOCAL_IP}:${API_PORT}/chat-text-data`,
               {
                 messages: messages, // Array of messages
                 startTimestamp: startTimestamp,
@@ -41,8 +43,22 @@ export default function App() {
 
             console.log("Data sent successfully to FastAPI");
           } catch (error) {
-            console.error("Error sending to FastAPI:", error);
+            if (error.response) {
+              // The server responded with a status code outside 2xx
+              console.error("Error response data:", error.response.data);
+              console.error("Error response status:", error.response.status);
+              console.error("Error response headers:", error.response.headers);
+            } else if (error.request) {
+              // The request was made but no response was received
+              console.error("No response received. Request details:", error.request);
+            } else {
+              // Something happened while setting up the request
+              console.error("Axios error message:", error.message);
+            }
+          
+            console.error("Full Axios error config:", error.config);
           }
+          
         } else {
           console.log("No messages in this session, skipping API call.");
         }
