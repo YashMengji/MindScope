@@ -1,4 +1,9 @@
 # dependencies
 node_modules/
 # local env files
+<<<<<<< HEAD
 .env*.local
+=======
+.env*.local
+.env
+>>>>>>> feature/backend-setup

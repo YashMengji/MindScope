@@ -15,23 +15,35 @@ import {
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import { login } from "../services/authService";
+import { useContext } from "react";
+import { AuthContext } from "../context/AuthContext";
 
 const LoginScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-
+  const { loginContext } = useContext(AuthContext);
   // State to track input focus
   const [isEmailFocused, setIsEmailFocused] = useState(false);
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert("Login Failed", "Please enter both email and password.");
       return;
     }
-    console.log("Login successful (simulation). Navigating to MainApp...");
+
+    const credentials = {
+      email,
+      password,
+    };
+
+    // send login creadentials to express server
+    const res = await login(credentials);
+    console.log("Login successful : ", res);
+    await loginContext(res.user);
     navigation.replace("MainApp");
   };
 
@@ -65,10 +77,7 @@ const LoginScreen = ({ navigation }) => {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <Image
-              source={require("../assets/logo.png")}
-              style={styles.logo}
-            />
+            <Image source={require("../assets/logo.png")} style={styles.logo} />
           </View>
 
           <View style={styles.formContainer}>
@@ -118,20 +127,22 @@ const LoginScreen = ({ navigation }) => {
                 />
               </TouchableOpacity>
             </View>
-            
+
             <TouchableOpacity>
-                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.button} onPress={handleLogin}>
               <Text style={styles.buttonText}>LOGIN</Text>
             </TouchableOpacity>
 
-             <View style={styles.footer}>
-                <Text style={styles.footerText}>Don't have an account? </Text>
-                <TouchableOpacity onPress={() => navigation.navigate("SignUp")}>
-                    <Text style={[styles.footerText, styles.linkText]}>Register</Text>
-                </TouchableOpacity>
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>Don't have an account? </Text>
+              <TouchableOpacity onPress={() => navigation.navigate("SignUp")}>
+                <Text style={[styles.footerText, styles.linkText]}>
+                  Register
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
@@ -213,9 +224,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   forgotPasswordText: {
-    textAlign: 'right',
-    color: '#003366',
-    fontWeight: '600',
+    textAlign: "right",
+    color: "#003366",
+    fontWeight: "600",
     marginBottom: 20,
   },
   button: {

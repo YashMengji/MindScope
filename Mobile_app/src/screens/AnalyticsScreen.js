@@ -1,6 +1,8 @@
 import React from "react";
 import { View, Text, StyleSheet, SafeAreaView, Image } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useContext } from "react";
+import { AuthContext } from "../context/AuthContext";
 
 const AnalyticsScreen = () => {
   const insets = useSafeAreaInsets();
@@ -10,7 +12,9 @@ const AnalyticsScreen = () => {
       {/* --- Header (same as FeaturesScreen) --- */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Hi Steve!</Text>
+          <Text style={styles.headerTitle}>
+            Hi {user ? user.name : "Default"}!
+          </Text>
           <Text style={styles.headerSubtitle}>your analytics overview</Text>
         </View>
         <Image

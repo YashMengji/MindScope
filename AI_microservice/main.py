@@ -6,7 +6,6 @@ from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
 
 
-# uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 
 

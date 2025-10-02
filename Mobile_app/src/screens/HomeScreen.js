@@ -8,6 +8,8 @@ import {
   Animated,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useContext } from "react";
+import { AuthContext } from "../context/AuthContext";
 
 // --- Main HomeScreen Component ---
 const HomeScreen = () => {
@@ -48,10 +50,7 @@ const HomeScreen = () => {
   }, []);
 
   const animatedStyle = {
-    transform: [
-      { scale: emojiScale },
-      { translateY: emojiBounce }
-    ],
+    transform: [{ scale: emojiScale }, { translateY: emojiBounce }],
   };
 
   return (
@@ -59,12 +58,17 @@ const HomeScreen = () => {
       {/* --- Header (exact copy from FeaturesScreen) --- */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Hi Steve!</Text>
+          <Text style={styles.headerTitle}>
+            Hi {user ? user.name : "Default"}!
+          </Text>
           <Text style={styles.headerSubtitle}>
             here's your mental health checkup for today
           </Text>
         </View>
-        <Image source={require("../assets/default.png")} style={styles.avatar} />
+        <Image
+          source={require("../assets/default.png")}
+          style={styles.avatar}
+        />
       </View>
 
       {/* --- Scrollable Content Area --- */}
@@ -75,7 +79,9 @@ const HomeScreen = () => {
       >
         {/* Mood Section */}
         <View style={styles.moodSection}>
-          <Animated.Text style={[styles.emoji, animatedStyle]}>😊</Animated.Text>
+          <Animated.Text style={[styles.emoji, animatedStyle]}>
+            😊
+          </Animated.Text>
           <Text style={styles.moodTitle}>You're very happy</Text>
           <Text style={styles.moodSubtitle}>
             Keep spreading positivity! Maybe share your joy with a loved one.
@@ -85,7 +91,6 @@ const HomeScreen = () => {
         {/* Progress Status Section - Container Only */}
         <View style={styles.progressSection}>
           <Text style={styles.progressTitle}>Progress Status</Text>
-          
           {/* Empty Chart Container */}
           <View style={styles.chartWrapper}>
             <Text style={styles.placeholderText}>
