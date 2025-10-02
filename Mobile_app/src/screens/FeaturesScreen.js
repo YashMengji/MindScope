@@ -41,7 +41,7 @@ const FeaturesScreen = () => {
   const [isScreenUsageEnabled, setScreenUsageEnabled] = useState(false);
   const [isBackgroundEnabled, setBackgroundEnabled] = useState(false);
   const [isOverlayEnabled, setOverlayEnabled] = useState(false);
-
+  const { user } = useContext(AuthContext);
   // --- Permission Handlers ---
 
   // 1. Voice Call Check (Microphone Permission)

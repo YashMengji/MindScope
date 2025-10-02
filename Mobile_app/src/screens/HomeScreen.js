@@ -16,6 +16,7 @@ const HomeScreen = () => {
   const insets = useSafeAreaInsets();
   const emojiScale = useRef(new Animated.Value(1)).current;
   const emojiBounce = useRef(new Animated.Value(0)).current;
+  const { user } = useContext(AuthContext);
 
   // Emoji animation
   useEffect(() => {

@@ -1,8 +1,9 @@
 import axios from "axios";
 import { getToken } from "../services/tokenService";
+import { IP_ADDRESS } from "@env";
 
 const api = axios.create({
-  baseURL: "http://<your_ip_address>:3000/api", // Replace with your Express server
+  baseURL: `http://${IP_ADDRESS}:3000/api`, // Replace with your Express server
   timeout: 10000,
   headers: { "Content-Type": "application/json" },
 });

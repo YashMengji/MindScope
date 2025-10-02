@@ -6,7 +6,7 @@ import { AuthContext } from "../context/AuthContext";
 
 const AnalyticsScreen = () => {
   const insets = useSafeAreaInsets();
-
+  const { user } = useContext(AuthContext);
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* --- Header (same as FeaturesScreen) --- */}
