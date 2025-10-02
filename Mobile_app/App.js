@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { NativeEventEmitter, NativeModules } from "react-native";
 import axios from "axios";
 import AppNavigator from "./src/navigation/AppNavigator";
+import { AuthContextProvider } from "./src/context/AuthContext";
 
 const { ChatAccessibilityModule } = NativeModules;
 
@@ -52,5 +53,9 @@ export default function App() {
     return () => subscription.remove();
   }, []);
 
-  return <AppNavigator />;
+  return (
+    <AuthContextProvider>
+      <AppNavigator />
+    </AuthContextProvider>
+  );
 }

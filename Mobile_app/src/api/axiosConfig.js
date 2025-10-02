@@ -1,0 +1,22 @@
+import axios from "axios";
+import { getToken } from "../services/tokenService";
+
+const api = axios.create({
+  baseURL: "http://<your_ip_address>:3000/api", // Replace with your Express server
+  timeout: 10000,
+  headers: { "Content-Type": "application/json" },
+});
+
+// Request interceptor → attach token
+api.interceptors.request.use(
+  async (config) => {
+    const token = await getToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+export default api;

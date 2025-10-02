@@ -15,6 +15,7 @@ import {
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import { signup } from "../services/authService";
 
 const SignUpScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -29,9 +30,10 @@ const SignUpScreen = ({ navigation }) => {
   const [isNameFocused, setIsNameFocused] = useState(false);
   const [isEmailFocused, setIsEmailFocused] = useState(false);
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
-  const [isConfirmPasswordFocused, setIsConfirmPasswordFocused] = useState(false);
+  const [isConfirmPasswordFocused, setIsConfirmPasswordFocused] =
+    useState(false);
 
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
     if (!name || !email || !password || !confirmPassword) {
       Alert.alert("Incomplete Form", "Please fill in all fields to sign up.");
       return;
@@ -41,7 +43,15 @@ const SignUpScreen = ({ navigation }) => {
       return;
     }
 
-    console.log("Sign up successful (simulation). Navigating to MainApp...");
+    const userData = {
+      name,
+      email,
+      password,
+    };
+
+    // send signup credentials to express server
+    const res = await signup(userData);
+    console.log("Signup successful : ", res);
     navigation.replace("MainApp");
   };
 
@@ -75,10 +85,7 @@ const SignUpScreen = ({ navigation }) => {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <Image
-              source={require("../assets/logo.png")}
-              style={styles.logo}
-            />
+            <Image source={require("../assets/logo.png")} style={styles.logo} />
           </View>
 
           <View style={styles.formContainer}>
@@ -180,11 +187,11 @@ const SignUpScreen = ({ navigation }) => {
               <Text style={styles.buttonText}>REGISTER</Text>
             </TouchableOpacity>
 
-             <View style={styles.footer}>
-                <Text style={styles.footerText}>Already have an account? </Text>
-                <TouchableOpacity onPress={() => navigation.navigate("Login")}>
-                    <Text style={[styles.footerText, styles.linkText]}>Login</Text>
-                </TouchableOpacity>
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>Already have an account? </Text>
+              <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+                <Text style={[styles.footerText, styles.linkText]}>Login</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </ScrollView>

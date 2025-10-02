@@ -8,12 +8,16 @@ import {
   ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { removeToken } from "../services/tokenService";
+import { useContext } from "react";
+import { AuthContext } from "../context/AuthContext";
 
 const ProfileScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-
-  const handleLogout = () => {
+  const { logout, user } = useContext(AuthContext);
+  const handleLogout = async () => {
     // Logout logic here
+    await logout();
     console.log("User logged out");
     // Redirect to landing page
     navigation.navigate("Landing"); // Replace "Landing" with your actual landing page route name
@@ -24,7 +28,9 @@ const ProfileScreen = ({ navigation }) => {
       {/* --- Header (exact same as other screens) --- */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Hi Steve!</Text>
+          <Text style={styles.headerTitle}>
+            Hi {user ? user.name : "Default"}!
+          </Text>
           <Text style={styles.headerSubtitle}>
             manage your profile and settings
           </Text>
@@ -42,9 +48,9 @@ const ProfileScreen = ({ navigation }) => {
       >
         {/* Profile Image Section */}
         <View style={styles.profileSection}>
-          <Image 
-            source={require("../assets/default.png")} 
-            style={styles.profileImage} 
+          <Image
+            source={require("../assets/default.png")}
+            style={styles.profileImage}
           />
           <Text style={styles.profileName}>Steve Rogers</Text>
           <Text style={styles.profileEmail}>steve.rogers@example.com</Text>

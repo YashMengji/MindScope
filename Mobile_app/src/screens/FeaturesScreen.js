@@ -14,6 +14,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Audio } from "expo-av";
+import { useContext } from "react";
+import { AuthContext } from "../context/AuthContext";
 
 // --- This is a helper component for the feature cards ---
 const FeatureCard = ({ iconName, title, value, onValueChange }) => {
@@ -230,7 +232,9 @@ const FeaturesScreen = () => {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Hi Steve!</Text>
+          <Text style={styles.headerTitle}>
+            Hi {user ? user.name : "Default"}!
+          </Text>
           <Text style={styles.headerSubtitle}>
             give your mental health a check
           </Text>
