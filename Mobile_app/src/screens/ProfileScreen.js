@@ -52,8 +52,10 @@ const ProfileScreen = ({ navigation }) => {
             source={require("../assets/default.png")}
             style={styles.profileImage}
           />
-          <Text style={styles.profileName}>Steve Rogers</Text>
-          <Text style={styles.profileEmail}>steve.rogers@example.com</Text>
+          <Text style={styles.profileName}>{user ? user.name : "Default"}</Text>
+          <Text style={styles.profileEmail}>
+            {user ? user.email : "Default"}
+          </Text>
         </View>
 
         {/* App Usage Time Container */}

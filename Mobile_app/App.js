@@ -3,8 +3,7 @@ import { NativeEventEmitter, NativeModules } from "react-native";
 import axios from "axios";
 import AppNavigator from "./src/navigation/AppNavigator";
 import { AuthContextProvider } from "./src/context/AuthContext";
-import { IP_ADDRESS } from "@env";
-
+// import { IP_ADDRESS } from "@env";
 const { ChatAccessibilityModule } = NativeModules;
 
 export default function App() {
@@ -31,17 +30,23 @@ export default function App() {
           try {
             // Send the entire session data to FastAPI
             const response = await axios.post(
-              `http://${IP_ADDRESS}:8000/chat-text-data`,
+              // `http://${IP_ADDRESS}:8000/chat-text-data`,
+              `http://localhost:8000/chat-text-data`,
               {
                 messages: messages, // Array of messages
                 startTimestamp: startTimestamp,
                 endTimestamp: endTimestamp,
                 sessionId: `${startTimestamp}-${endTimestamp}`, // Unique ID
-              }
+              },
+              { headers: { "Content-Type": "application/json" } }
             );
             // console.log("Response from FastAPI:", response.data);
 
             console.log("Data sent successfully to FastAPI");
+            console.log(
+              "response from fastAPI : ",
+              JSON.stringify(response.data, null, 2)
+            );
           } catch (error) {
             console.error("Error sending to FastAPI:", error);
           }

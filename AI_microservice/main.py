@@ -4,6 +4,10 @@ from typing import List, Optional
 import logging
 from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
+from transformers import pipeline
+
+
+
 
 app = FastAPI()
 
@@ -19,12 +23,21 @@ app.add_middleware(
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Load Hugging Face emotion classification pipeline
+emotion_classifier = pipeline("text-classification", model="SamLowe/roberta-base-go_emotions", top_k=3)
+
 class ChatText(BaseModel): 
     chatText: str
 
 @app.get("/")
 def root():
     return {"Hello FastAPI"}
+
+@app.post("/analyze-emotion")
+async def analyze_emotion(data: ChatText):
+    # Run model inference
+    results = emotion_classifier(data.text)
+    return {"text": data.text, "emotions": results}
 
 class ChatSession(BaseModel):
     messages: List[str]
@@ -42,6 +55,7 @@ async def receive_chat_data(session: ChatSession):
             duration_sec = (session.endTimestamp - session.startTimestamp) / 1000
             logger.info(f"Session duration: {duration_sec:.2f} seconds")
         
+        analysis = []
         # Log each message individually
         if session.messages:
             logger.info(f"Number of messages: {len(session.messages)}")
@@ -51,19 +65,33 @@ async def receive_chat_data(session: ChatSession):
             # ✅ Basic toxicity check (example)
             for message in session.messages:
                 toxicity_score = analyze_toxicity(message)
+                feedback = ""
                 if toxicity_score > 0.7:
                     feedback = generate_feedback(message)
                     logger.info(f"🚨 Toxic message detected! Score: {toxicity_score}")
                     logger.info(f"💡 Suggestion: {feedback}")
+
+                raw_emotions = emotion_classifier(message)[0]  
+                emotions = [{"label": e["label"], "score": float(e["score"])} for e in raw_emotions]
+
+                analysis.append({
+                    "message": message,
+                    "toxicity_score": toxicity_score,
+                    "feedback": feedback,
+                    "emotions": emotions
+                })
         else:
             logger.warning("No messages received in this session")
         
+
+
         logger.info("=== END OF SESSION ===")
         
         return {
-            "status": "success", 
-            "message": f"Processed {len(session.messages)} messages",
-            "session_id": session.sessionId
+            "status": "success",
+            "session_id": session.sessionId,
+            "duration_sec": duration_sec,
+            "analysis": analysis
         }
         
     except Exception as e:
