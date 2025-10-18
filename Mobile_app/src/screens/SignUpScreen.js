@@ -16,6 +16,8 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { signup } from "../services/authService";
+import { useContext } from "react";
+import { AuthContext } from "../context/AuthContext";
 
 const SignUpScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -32,6 +34,7 @@ const SignUpScreen = ({ navigation }) => {
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
   const [isConfirmPasswordFocused, setIsConfirmPasswordFocused] =
     useState(false);
+  const { loginContext } = useContext(AuthContext);
 
   const handleSignUp = async () => {
     if (!name || !email || !password || !confirmPassword) {
@@ -52,6 +55,7 @@ const SignUpScreen = ({ navigation }) => {
     // send signup credentials to express server
     const res = await signup(userData);
     console.log("Signup successful : ", res);
+    await loginContext(res.user);
     navigation.replace("MainApp");
   };
 
