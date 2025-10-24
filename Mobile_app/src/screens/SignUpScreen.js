@@ -38,6 +38,7 @@ const SignUpScreen = ({ navigation }) => {
 
   const handleSignUp = async () => {
     if (!name || !email || !password || !confirmPassword) {
+      console.log("Fill in all fields to sign up.");
       Alert.alert("Incomplete Form", "Please fill in all fields to sign up.");
       return;
     }

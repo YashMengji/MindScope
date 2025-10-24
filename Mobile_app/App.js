@@ -5,6 +5,17 @@ import AppNavigator from "./src/navigation/AppNavigator";
 import { AuthContextProvider } from "./src/context/AuthContext";
 // import { IP_ADDRESS } from "@env";
 const { ChatAccessibilityModule } = NativeModules;
+import { StatusBar } from 'expo-status-bar';
+import { StyleSheet, Text, View } from 'react-native';
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
 
 export default function App() {
   console.log("This is log from app.js");
@@ -12,6 +23,9 @@ export default function App() {
   // This useEffect hook will run when the app starts.
   // It sets up your native event listener.
   useEffect(() => {
+    console.log("App has opened and initialized."); // Single log when the app opens
+    // Mark JS runtime ready whenever the app mounts
+
     const eventEmitter = new NativeEventEmitter(ChatAccessibilityModule);
     const subscription = eventEmitter.addListener(
       "ChatSessionEvent",
@@ -30,7 +44,7 @@ export default function App() {
           try {
             // Send the entire session data to FastAPI
             const response = await axios.post(
-              // `http://${IP_ADDRESS}:8000/chat-text-data`,
+              //`http://${IP_ADDRESS}:8000/chat-text-data`,
               `http://localhost:8000/chat-text-data`,
               {
                 messages: messages, // Array of messages
@@ -59,9 +73,16 @@ export default function App() {
     return () => subscription.remove();
   }, []);
 
+
   return (
     <AuthContextProvider>
       <AppNavigator />
     </AuthContextProvider>
+    // <View style={styles.container}>
+    //   <Text>Open up App.js to start working on your app!</Text>
+    //   <StatusBar style="auto" />
+    // </View>
   );
 }
+
+

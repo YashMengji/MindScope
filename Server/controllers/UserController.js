@@ -12,6 +12,7 @@ export const profile = async (req, res) => {
 export const signup = async (req, res) => {
   try {
     const { name, email, password } = req.body;
+    console.log("Signup request received : ", req.body);
     const user = await userModel.findOne({ email });
 
     // check if user already exists or not
