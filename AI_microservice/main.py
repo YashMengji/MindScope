@@ -91,6 +91,8 @@ async def receive_chat_data(session: ChatSession):
                     "message": message,
                     "toxicity_inference": toxicity_inference,
                     "feedback": feedback,
+                    "startTimestamp": session.startTimestamp,
+                    "endTimestamp": session.endTimestamp,
                     "emotions": emotions
                 })
         else:

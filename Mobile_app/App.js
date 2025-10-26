@@ -7,6 +7,7 @@ import { AuthContextProvider } from "./src/context/AuthContext";
 const { ChatAccessibilityModule } = NativeModules;
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View } from 'react-native';
+import { sendChatInference } from "./src/services/chatInferenceService";
 
 const styles = StyleSheet.create({
   container: {
@@ -44,7 +45,6 @@ export default function App() {
           try {
             // Send the entire session data to FastAPI
             const response = await axios.post(
-              //`http://${IP_ADDRESS}:8000/chat-text-data`,
               `http://localhost:8000/chat-text-data`,
               {
                 messages: messages, // Array of messages
@@ -54,13 +54,20 @@ export default function App() {
               },
               { headers: { "Content-Type": "application/json" } }
             );
-            // console.log("Response from FastAPI:", response.data);
+            console.log(typeof response.data);
+            try {
+              await sendChatInference(response.data);
 
+            } catch (err) {
+              console.error("Error in sendChatInference:", err);
+            }
+            
             console.log("Data sent successfully to FastAPI");
             console.log(
               "response from fastAPI : ",
               JSON.stringify(response.data, null, 2)
             );
+            
           } catch (error) {
             console.error("Error sending to FastAPI:", error);
           }

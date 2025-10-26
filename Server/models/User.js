@@ -13,6 +13,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  chatInferences: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "ChatInference",
+  }]
 });
 
 export default mongoose.model("User", userSchema);
