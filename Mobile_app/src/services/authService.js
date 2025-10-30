@@ -1,8 +1,15 @@
 import api from "../api/axiosConfig";
 import { saveToken } from "./tokenService";
+import axios from "axios";
+import { getToken } from "./tokenService";
 
 export const getProfile = async () => {
-  const response = await api.get("/user/profile");
+  const token = await getToken();
+  const response = await axios.get("http://localhost:3000/api/user/profile", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
   return response.data;
 };
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,9 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
+import { LineChart } from 'react-native-chart-kit';
+import { Dimensions } from 'react-native';
+import { getChat } from "../services/chatInferenceService";
 
 // --- Main HomeScreen Component ---
 const HomeScreen = () => {
@@ -17,6 +20,7 @@ const HomeScreen = () => {
   const emojiScale = useRef(new Animated.Value(1)).current;
   const emojiBounce = useRef(new Animated.Value(0)).current;
   const { user } = useContext(AuthContext);
+  const [chats, setChats] = useState([]);
 
   // Emoji animation
   useEffect(() => {
@@ -50,9 +54,51 @@ const HomeScreen = () => {
     animateEmoji();
   }, []);
 
+  useEffect( () => {
+    
+    console.log("Fetching chat data for user:", user);
+    const fetchData = async () => {
+      return await getChat(user._id);
+    }
+    const response = fetchData();
+    console.log("Chat data response:", response.chats);
+    setChats(response.chats);
+  }, []);
+
   const animatedStyle = {
     transform: [{ scale: emojiScale }, { translateY: emojiBounce }],
   };
+
+
+
+  const chartConfig = {
+    backgroundColor: '#ffffff',
+    backgroundGradientFrom: '#ffffff',
+    backgroundGradientTo: '#ffffff',
+    decimalPlaces: 2,
+    color: (opacity = 1) => `rgba(255, 59, 48, ${opacity})`,
+    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+    style: {
+      borderRadius: 0,
+    },
+    propsForDots: {
+      r: '4',
+      strokeWidth: '2',
+      stroke: '#ff3b30',
+    },
+  };
+
+  const toxicityData = {
+    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    datasets: [
+      {
+        data: [0.2, 0.4, 0.3, 0.1, 0.5, 0.2, 0.1], // toxicity scores (0-1 scale)
+        color: (opacity = 1) => `rgba(255, 59, 48, ${opacity})`, // Red color for toxicity
+        strokeWidth: 2,
+      },
+    ],
+  };
+  const screenWidth = Dimensions.get('window').width;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -94,9 +140,17 @@ const HomeScreen = () => {
           <Text style={styles.progressTitle}>Progress Status</Text>
           {/* Empty Chart Container */}
           <View style={styles.chartWrapper}>
-            <Text style={styles.placeholderText}>
-              Progress chart will be displayed here
-            </Text>
+            <LineChart
+              data={toxicityData}
+              width={screenWidth - 80} // Adjust based on your padding
+              height={200}
+              chartConfig={chartConfig}
+              bezier
+              style={{
+                borderRadius: 16,
+                paddingRight: 0,
+              }}
+            />
           </View>
         </View>
 

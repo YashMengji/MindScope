@@ -32,6 +32,7 @@ export const signup = async (req, res) => {
     await newUser.save();
 
     const payload = {
+      id: newUser._id,
       name: newUser.name,
       email: newUser.email,
     };
@@ -64,8 +65,9 @@ export const login = async (req, res) => {
         .status(400)
         .json({ status: false, message: "invalid credentials" });
     }
-
+    
     const payload = {
+      id: registeredUser._id,
       name: registeredUser.name,
       email: registeredUser.email,
     };
