@@ -89,16 +89,6 @@ const HomeScreen = () => {
           </Text>
         </View>
 
-        {/* Progress Status Section - Container Only */}
-        <View style={styles.progressSection}>
-          <Text style={styles.progressTitle}>Progress Status</Text>
-          {/* Empty Chart Container */}
-          <View style={styles.chartWrapper}>
-            <Text style={styles.placeholderText}>
-              Progress chart will be displayed here
-            </Text>
-          </View>
-        </View>
 
         {/* Spacing at the bottom */}
         <View style={styles.bottomSpacing} />

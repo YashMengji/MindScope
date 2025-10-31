@@ -15,7 +15,8 @@ export const authMiddleware = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET); // verify token
+    // const decoded = jwt.verify(token, process.env.JWT_SECRET); // verify token
+    const decoded = jwt.verify(token, "secret"); // verify token
     req.user = decoded; // attach user payload (id, email, etc.)
     next();
   } catch (err) {

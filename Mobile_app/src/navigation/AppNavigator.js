@@ -46,15 +46,15 @@ const AppNavigator = () => {
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName="Landing"
+        initialRouteName="MainApp"
         screenOptions={{
           headerShown: false,
         }}
       >
         <Stack.Screen name="Landing" component={LandingScreen} />
+        <Stack.Screen name="MainApp" component={MainAppTabs} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="SignUp" component={SignUpScreen} />
-        <Stack.Screen name="MainApp" component={MainAppTabs} />
       </Stack.Navigator>
     </NavigationContainer>
   );
