@@ -4,6 +4,16 @@
   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
   <uses-permission android:name="android.permission.VIBRATE"/>
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
+  <!-- REQUIRED PERMISSIONS FOR VOICE CALL ANALYSIS (Runtime Permissions) -->
+  <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+  <uses-permission android:name="android.permission.RECORD_AUDIO" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+  <uses-permission android:name="android.permission.CAPTURE_AUDIO_OUTPUT" />
+
   <queries>
     <intent>
       <action android:name="android.intent.action.VIEW"/>
@@ -21,6 +31,7 @@
         <category android:name="android.intent.category.LAUNCHER"/>
       </intent-filter>
     </activity>
+    
     <service
     android:name=".ChatAccessibilityService"
     android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
@@ -33,5 +44,14 @@
           android:name="android.accessibilityservice"
           android:resource="@xml/accessibility_service_config" />
     </service>
+
+    <service android:name=".CallRecordingService" android:exported="false" />
+    <receiver android:name=".CallReceiver" android:exported="true">
+      <intent-filter>
+        <!-- Broadcast to listen for changes in the phone state -->
+        <action android:name="android.intent.action.PHONE_STATE" />
+      </intent-filter>
+    </receiver>
+
   </application>
 </manifest>
