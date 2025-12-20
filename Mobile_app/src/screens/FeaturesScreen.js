@@ -6,17 +6,21 @@ import {
   Image,
   Switch,
   TouchableOpacity,
+  ActivityIndicator,
+  NativeModules,
+  PermissionsAndroid,
   Alert,
   Linking, // To open app settings
-  NativeModules, // To access your custom native code
   Platform, // To check if the OS is Android
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Audio } from "expo-av";
-import { useContext } from "react";
+import { useContext , useCallback, useEffect} from "react";
 import { AuthContext } from "../context/AuthContext";
 
+// Define Native Modules
+const { ChatAccessibility, CallAnalysis } = NativeModules;
 // --- This is a helper component for the feature cards ---
 const FeatureCard = ({ iconName, title, value, onValueChange }) => {
   return (
@@ -36,197 +40,180 @@ const FeatureCard = ({ iconName, title, value, onValueChange }) => {
 // --- Main Screen Component ---
 const FeaturesScreen = () => {
   const insets = useSafeAreaInsets();
-  const [isVoiceEnabled, setVoiceEnabled] = useState(false);
-  const [isChatEnabled, setChatEnabled] = useState(false);
-  const [isScreenUsageEnabled, setScreenUsageEnabled] = useState(false);
-  const [isBackgroundEnabled, setBackgroundEnabled] = useState(false);
-  const [isOverlayEnabled, setOverlayEnabled] = useState(false);
   const { user } = useContext(AuthContext);
   // --- Permission Handlers ---
 
-  // 1. Voice Call Check (Microphone Permission)
-  const handleVoiceToggle = async () => {
-    const { status } = await Audio.requestPermissionsAsync();
-    if (status === "granted") {
-      setVoiceEnabled((previousState) => !previousState);
-      Alert.alert("Success", "Microphone permission granted!");
-    } else {
+  const [chatAnalysisEnabled, setChatAnalysisEnabled] = useState(false);
+  const [voicePermissions, setVoicePermissions] = useState({
+    READ_PHONE_STATE: false,
+    RECORD_AUDIO: false,
+    WRITE_STORAGE: false,
+    READ_STORAGE: false,
+    ALL_GRANTED: false
+  });
+  const [isVoiceCallPermissionEnabled, setIsVoiceCallPermissionEnabled] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // --- 1. CHAT ACCESSIBILITY LOGIC ---
+  // Checks if the Chat Accessibility Service is enabled.
+  const checkChatStatus = useCallback(async () => {
+    if (Platform.OS !== 'android' || !ChatAccessibility || !ChatAccessibility.isServiceEnabled) return;
+    try {
+      const isEnabled = await ChatAccessibility.isServiceEnabled();
+      setChatAnalysisEnabled(isEnabled);
+    } catch (error) {
+      console.error("Failed to check Chat status:", error);
+    }
+  }, []);
+
+  const openChatSettings = (isCurrentlyEnabled) => {
+    if (Platform.OS === 'android' && ChatAccessibility && ChatAccessibility.openAccessibilitySettings) {
+        if (isCurrentlyEnabled) {
+             Alert.alert(
+                "Feature Deactivated",
+                "Chat Analysis is now OFF. To fully disable, please turn off the service in Accessibility Settings."
+            );
+             setChatAnalysisEnabled(false); // Optimistically set to false in app state
+        } else {
+            Alert.alert(
+                "Feature Activation Required",
+                "To enable Chat Analysis, you must manually turn on the service on the next screen.",
+                [
+                    { text: "Cancel", style: "cancel" },
+                    { 
+                        text: "Go to Settings", 
+                        onPress: () => ChatAccessibility.openAccessibilitySettings() 
+                    },
+                ]
+            );
+        }
+    }
+  };
+
+  // --- 2. VOICE CALL PERMISSION LOGIC ---
+  // Checks the status of READ_PHONE_STATE and RECORD_AUDIO permissions.
+  const checkVoiceStatus = useCallback(async () => {
+    if (Platform.OS !== 'android') return;
+    if (Platform.OS !== 'android' || !CallAnalysis || !CallAnalysis.checkPermissions) return;
+    try {
+      // Use the native module to check current status
+      const status = await CallAnalysis.checkPermissions();
+      // Update the main toggle state based on the ALL_GRANTED flag from the native module
+      setIsVoiceCallPermissionEnabled(status.ALL_GRANTED); 
+      console.log("Checked voice permissions via CallAnalysisModule:", status.ALL_GRANTED);
+    } catch (error) {
+      console.error("Failed to check Voice permissions:", error);
+      setIsVoiceCallPermissionEnabled(false);
+    }
+  }, []);
+
+  // Requests the two necessary runtime permissions for call detection/recording.
+  const requestVoicePermissions = async (newValue) => {
+    if (Platform.OS !== 'android') return;
+
+    // --- LOGIC 1: Toggle OFF (Manual Revocation Required) ---
+    if (!newValue) {
+      // Save the new state (DISABLED) to SharedPreferences
+      await CallAnalysis.setVoiceFeatureEnabled(false);
+      // Set state to false to stop the feature logic immediately
+      setIsVoiceCallPermissionEnabled(false);
+      
+      // POP-UP CONFIRMATION & EXPLANATION FOR REVOKING PERMISSIONS
       Alert.alert(
-        "Permission Denied",
-        "To use this feature, you need to enable microphone access in your settings.",
-        [{ text: "Open Settings", onPress: () => Linking.openSettings() }]
+          "Feature Deactivated & Permissions", 
+          "Voice Analysis is OFF. To fully deny Microphone and Phone access, you must manually revoke them in App Settings.",
+          [
+            { text: "Cancel", style: "cancel" },
+            // Navigate the user to the only place they can deny permissions
+            { text: "Open App Settings", onPress: () => Linking.openSettings() },
+          ]
       );
+      return;
     }
-  };
 
-  // 2. Chat Mood Check (Accessibility Service)
-  const handleChatToggle = () => {
-    if (Platform.OS !== "android") {
-      return Alert.alert(
-        "Unsupported",
-        "This feature is only available on Android."
-      );
-    }
-    const { ChatAccessibilityModule } = NativeModules;
-    if (ChatAccessibilityModule) {
-      ChatAccessibilityModule.requestAccessibilityPermission();
-      setChatEnabled((previousState) => !previousState);
+    // --- LOGIC 2: Toggle ON (Request Permissions) ---
+    const results = await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE,
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE, // <-- To save the file
+        PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+    ]);
+
+    const readGranted = results[PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE] === PermissionsAndroid.RESULTS.GRANTED;
+    const recordGranted = results[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] === PermissionsAndroid.RESULTS.GRANTED;
+    const writeStorageGranted = results[PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE] === PermissionsAndroid.RESULTS.GRANTED;
+    const readStorageGranted = results[PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE] === PermissionsAndroid.RESULTS.GRANTED;
+    
+    const allGranted = readGranted && recordGranted && writeStorageGranted && readStorageGranted;
+
+    if (allGranted) {
+      // Save the new state (ENABLED) to SharedPreferences
+      await CallAnalysis.setVoiceFeatureEnabled(true);
+      setIsVoiceCallPermissionEnabled(true);
+      // POP-UP CONFIRMATION FOR ACTIVATION
+      Alert.alert("Feature Activated", "Voice Call Analysis is ON! Microphone and Phone access granted.");
     } else {
-      Alert.alert(
-        "Error",
-        "Chat Accessibility Module not found. Make sure it is linked correctly."
-      );
+        console.warn("Not all permissions granted:", results);
+        
+        const neverAskRead = results[PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE] === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN;
+        const neverAskRecord = results[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN;
+        
+        if (neverAskRead || neverAskRecord) {
+            Alert.alert(
+                "Permissions Permanently Denied",
+                "Voice analysis needs Microphone and Phone access. Please navigate to 'Permissions' and manually switch both to 'Allow'.",
+                [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Open App Settings", onPress: () => Linking.openSettings() },
+                ]
+            );
+        } else {
+             Alert.alert("Permission Denied", "Voice analysis cannot run without both Phone State and Microphone access.");
+        }
+        
+        // Final status check to ensure the UI reflects the true state (OFF)
+        setIsVoiceCallPermissionEnabled(false); 
     }
   };
 
-  // 3. Screen Usage Check (Usage Stats Permission)
-  const handleScreenUsageToggle = () => {
-    if (Platform.OS !== "android") {
-      return Alert.alert(
-        "Unsupported",
-        "This feature is only available on Android."
-      );
-    }
-    const { UsageStatsModule } = NativeModules;
-    if (UsageStatsModule) {
-      UsageStatsModule.requestUsageStatsPermission();
-      setScreenUsageEnabled((previousState) => !previousState);
-    } else {
-      Alert.alert(
-        "Error",
-        "Usage Stats Module not found. This requires custom native Android code."
-      );
-    }
+  // --- HANDLER FUNCTIONS FOR TOGGLES ---
+  const handleVoiceToggle = (newValue) => {
+    // The switch value is passed as newValue
+    requestVoicePermissions(newValue);
   };
 
-  // 4. Background Run Permission
-  const handleBackgroundToggle = () => {
-    if (Platform.OS !== "android") {
-      return Alert.alert(
-        "Unsupported",
-        "This feature is only available on Android."
-      );
-    }
-
-    Alert.alert(
-      "Background Operation",
-      "This allows the app to run in background for continuous mental health monitoring. You'll need to disable battery optimization for this app.",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-          onPress: () => setBackgroundEnabled(false),
-        },
-        {
-          text: "Open Settings",
-          onPress: () => {
-            if (Platform.OS === "android") {
-              Linking.openSettings();
-              setBackgroundEnabled(true);
-            }
-          },
-        },
-        {
-          text: "Grant Permission",
-          onPress: () => {
-            if (Platform.OS === "ios") {
-              Alert.alert(
-                "iOS Background Mode",
-                "iOS automatically manages background operations. Make sure Background App Refresh is enabled in Settings."
-              );
-            } else {
-              const { BackgroundModule } = NativeModules;
-              if (BackgroundModule) {
-                BackgroundModule.requestIgnoreBatteryOptimization();
-                setBackgroundEnabled(true);
-                Alert.alert(
-                  "Background Permission",
-                  "Please disable battery optimization for this app in the next screen to allow background operation."
-                );
-              } else {
-                Linking.openSettings();
-                setBackgroundEnabled(true);
-              }
-            }
-          },
-        },
-      ]
-    );
+  const handleChatToggle = (newValue) => {
+    // The chat feature requires navigation to system settings regardless of state change.
+    openChatSettings(!newValue); // Pass the intended *new* state to the handler
   };
 
-  // 5. Display Over Other Apps Permission
-  const handleOverlayToggle = () => {
-    if (Platform.OS !== "android") {
-      return Alert.alert(
-        "Unsupported",
-        "This feature is only available on Android."
-      );
-    }
+  // --- INITIAL LOAD AND REFRESH ---
+  useEffect(() => {
+    const loadStatus = async () => {
+        setLoading(true);
+        // Load both feature statuses
+        await checkChatStatus();
+        await checkVoiceStatus();
+        setLoading(false);
+    };
 
-    Alert.alert(
-      "Display Over Other Apps",
-      "This will show a small floating icon when the app is tracking your mood. It helps you know when the app is actively monitoring.",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-          onPress: () => setOverlayEnabled(false),
-        },
-        {
-          text: "Open Settings",
-          onPress: () => {
-            // Directly open overlay permission settings for Android
-            if (Platform.OS === "android") {
-              Linking.openSettings();
-              setOverlayEnabled(true);
-            }
-          },
-        },
-        {
-          text: "Grant Permission",
-          onPress: async () => {
-            if (Platform.OS === "android") {
-              try {
-                // Try to use a native module for overlay permission
-                const { OverlayModule } = NativeModules;
-                if (OverlayModule && OverlayModule.requestOverlayPermission) {
-                  const granted =
-                    await OverlayModule.requestOverlayPermission();
-                  if (granted) {
-                    setOverlayEnabled(true);
-                    Alert.alert(
-                      "Overlay Permission Granted",
-                      "The app can now display over other apps. A small indicator will appear when tracking is active."
-                    );
-                  } else {
-                    setOverlayEnabled(false);
-                    Alert.alert(
-                      "Permission Required",
-                      "Please enable 'Display over other apps' permission in settings to use this feature.",
-                      [
-                        {
-                          text: "Open Settings",
-                          onPress: () => Linking.openSettings(),
-                        },
-                      ]
-                    );
-                  }
-                } else {
-                  // Fallback to opening settings
-                  Linking.openSettings();
-                  setOverlayEnabled(true);
-                }
-              } catch (error) {
-                console.error("Error requesting overlay permission:", error);
-                Linking.openSettings();
-                setOverlayEnabled(true);
-              }
-            }
-          },
-        },
-      ]
-    );
-  };
+    loadStatus();
+
+    // Set up interval to periodically check accessibility status 
+    // because the user enables it outside the app
+    const interval = setInterval(checkChatStatus, 2000); 
+
+    return () => clearInterval(interval);
+  }, [checkChatStatus, checkVoiceStatus]);
+  
+  if (loading) {
+    return (
+        <View style={styles.container}>
+            <ActivityIndicator size="large" color="#4F46E5" />
+            <Text style={styles.loadingText}>Checking feature statuses...</Text>
+        </View>
+    )
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -248,17 +235,17 @@ const FeaturesScreen = () => {
       <View style={styles.featuresContainer}>
         <FeatureCard
           iconName="mic-outline"
-          title="Voice Call Check"
-          value={isVoiceEnabled}
+          title="Voice call analysis"
+          value={isVoiceCallPermissionEnabled}
           onValueChange={handleVoiceToggle}
         />
         <FeatureCard
           iconName="chatbubble-ellipses-outline"
-          title="Chat Mood Check"
-          value={isChatEnabled}
+          title="Chat message analysis"
+          value={chatAnalysisEnabled}
           onValueChange={handleChatToggle}
         />
-        <FeatureCard
+        {/* <FeatureCard
           iconName="phone-portrait-outline"
           title="Screen Usage Check"
           value={isScreenUsageEnabled}
@@ -272,13 +259,13 @@ const FeaturesScreen = () => {
           onValueChange={handleBackgroundToggle}
         />
 
-        {/* New Display Over Other Apps Feature */}
+        {/* New Display Over Other Apps Feature 
         <FeatureCard
           iconName="eye-outline"
           title="Active Tracking Indicator"
           value={isOverlayEnabled}
           onValueChange={handleOverlayToggle}
-        />
+        /> */}
       </View>
     </View>
   );
@@ -288,6 +275,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F8F9FA",
+  },
+  loadingText: {
+    marginTop: 15,
+    fontSize: 16,
+    color: '#6B7280'
   },
   header: {
     flexDirection: "row",
