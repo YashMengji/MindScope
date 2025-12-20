@@ -236,7 +236,7 @@ const FeaturesScreen = () => {
             Hi {user ? user.name : "Default"}!
           </Text>
           <Text style={styles.headerSubtitle}>
-            give your mental health a check
+            Give your mental health a check
           </Text>
         </View>
         <Image
