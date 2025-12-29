@@ -1,6 +1,7 @@
 package com.mobileapp
 
 import com.mobileapp.ChatAccessibilityPackage
+import com.mobileapp.CallRecordingPackage
 import android.app.Application
 import android.content.res.Configuration
 
@@ -27,7 +28,7 @@ class MainApplication : Application(), ReactApplication {
             // Packages that cannot be autolinked yet can be added manually here, for example:
             // packages.add(MyReactNativePackage())
             packages.add(ChatAccessibilityPackage())
-            packages.add(VoiceAnalysisPackage())
+            packages.add(CallRecordingPackage())
             return packages
           }
 

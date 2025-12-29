@@ -16,6 +16,7 @@ import HomeScreen from "../screens/HomeScreen";
 import FeaturesScreen from "../screens/FeaturesScreen";
 import AnalyticsScreen from "../screens/AnalyticsScreen";
 import ProfileScreen from "../screens/ProfileScreen";
+import VoiceAnalysisScreen from "../screens/VoiceAnalysisScreen";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -34,7 +35,9 @@ function MainAppTabs() {
       >
         <Tab.Screen name="Home" component={HomeScreen} />
         <Tab.Screen name="Features" component={FeaturesScreen} />
-        <Tab.Screen name="Analytics" component={AnalyticsScreen} />
+        <Tab.Screen name="Chat Analytics" component={AnalyticsScreen} />
+        <Tab.Screen name="Voice Analytics" component={VoiceAnalysisScreen} />
+        {/* <Tab.Screen name="Screen Usage" component={ScreenUsageScreen} /> */}
         <Tab.Screen name="Profile" component={ProfileScreen} />
       </Tab.Navigator>
     </View>
