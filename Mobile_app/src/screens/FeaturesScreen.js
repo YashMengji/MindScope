@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Settings2, Clock, PlayCircle, ShieldAlert, ChevronRight, Info } from 'lucide-react';
 import {
   View,
   Text,
@@ -20,9 +21,24 @@ import { useContext , useCallback, useEffect} from "react";
 import { AuthContext } from "../context/AuthContext";
 
 // Define Native Modules
-const { ChatAccessibility, CallAnalysis } = NativeModules;
+const { ChatAccessibility, CallAnalysis , ScreenController} = NativeModules;
 // --- This is a helper component for the feature cards ---
 const FeatureCard = ({ iconName, title, value, onValueChange }) => {
+  return (
+    <View style={styles.card}>
+      <Ionicons name={iconName} size={32} color="#0A2E5B" />
+      <Text style={styles.cardTitle}>{title}</Text>
+      <Switch
+        trackColor={{ false: "#E0E0E0", true: "#4A90E2" }}
+        thumbColor={value ? "#FFFFFF" : "#f4f3f4"}
+        onValueChange={onValueChange}
+        value={value}
+      />
+    </View>
+  );
+};
+
+const SubFeatureCard = ({ iconName, title, value, onValueChange }) => {
   return (
     <View style={styles.card}>
       <Ionicons name={iconName} size={32} color="#0A2E5B" />
@@ -176,6 +192,70 @@ const FeaturesScreen = () => {
     }
   };
 
+  // Logic for the Screen Controller toggle (opens accessibility settings if permissions are not granted)
+  const handleMainToggleChange = async (newValue) => {
+    if (newValue === true) {
+      // Check if Accessibility Service is enabled in system settings
+      const isEnabled = await ScreenController.isServiceEnabled();
+      
+      if (!isEnabled) {
+        Alert.alert(
+          "Permission Required",
+          "Screen Controller requires Accessibility permissions to track app usage and enforce limits.",
+          [
+            { 
+              text: "Cancel", 
+              onPress: () => setIsMainEnabled(false), 
+              style: "cancel" 
+            },
+            { 
+              text: "Open Settings", 
+              onPress: () => ScreenController.openAccessibilitySettings() 
+            }
+          ]
+        );
+        return;
+      }
+    }
+    
+    // Update local state
+    setIsMainEnabled(newValue);
+    
+    // Optional: Notify the service of the state change if you implemented a toggle method
+    // await ScreenController.setServiceActive(newValue);
+  };
+
+  //Logic for updating the Custom Time Limit
+  const updateDailyLimit = async (minutes) => {
+    setSelectedLimit(minutes);
+    
+    try {
+      // You should add this method to your ScreenControllerModule.java 
+      // to save the value to SharedPreferences
+      await ScreenController.saveDailyLimit(minutes);
+      
+      // Optional: Show feedback
+      console.log(`Daily limit updated to ${minutes} minutes`);
+    } catch (error) {
+      console.error("Failed to save limit to native storage", error);
+    }
+  };
+
+  // Effect hook to sync UI state with system state on mount
+  useEffect(() => {
+    const syncServiceState = async () => {
+      if (Platform.OS === 'android') {
+        const isRunning = await ScreenController.isServiceEnabled();
+        // If the service was turned off in system settings, turn off our UI toggle
+        if (!isRunning && isMainEnabled) {
+          setIsMainEnabled(false);
+        }
+      }
+    };
+
+    syncServiceState();
+  }, []);
+
   // --- HANDLER FUNCTIONS FOR TOGGLES ---
   const handleVoiceToggle = (newValue) => {
     // The switch value is passed as newValue
@@ -245,19 +325,19 @@ const FeaturesScreen = () => {
           value={chatAnalysisEnabled}
           onValueChange={handleChatToggle}
         />
-        {/* <FeatureCard
+        <FeatureCard
           iconName="phone-portrait-outline"
           title="Screen Usage Check"
           value={isScreenUsageEnabled}
           onValueChange={handleScreenUsageToggle}
         />
 
-        <FeatureCard
+        {/* <FeatureCard
           iconName="play-back-outline"
           title="Run in Background"
           value={isBackgroundEnabled}
           onValueChange={handleBackgroundToggle}
-        />
+        /> */}
 
         {/* New Display Over Other Apps Feature 
         <FeatureCard
