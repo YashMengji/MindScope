@@ -6,7 +6,7 @@ import FormData from "form-data";
 // Constants
 // NOTE: If using a real device, replace 'localhost' with your machine's IP address 
 // or use 'adb reverse tcp:3000 tcp:3000'
-const BASE_URL = "http://localhost:3000/api/voice";
+const BASE_URL = "http://localhost:8000";
 
 export const analyzeVoiceRecording = async (recordingFile) => {
   try {
