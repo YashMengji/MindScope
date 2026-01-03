@@ -83,7 +83,7 @@
       {
         "label": "ADB Logcat",
         "type": "shell",
-        "command": "@react-native-async-storage/async-storage",
+        "command": "adb logcat | ForEach-Object { if ($_ -like \"ChatAccessibilityService\") { $_ } }",
         "isBackground": true,
         "options": {
           "cwd": "C:\\Users\\Acer\\Desktop\\Major Project\\Mobile_app"

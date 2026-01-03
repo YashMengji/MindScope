@@ -15,6 +15,7 @@ import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 
@@ -166,6 +167,46 @@ public class CallRecordingModule extends ReactContextBaseJavaModule {
             }
         } catch (Exception e) {
             promise.reject("ERROR", e);
+        }
+    }
+
+    /**
+     * Lists all files in the currently selected recording directory.
+     * Returns an array of objects: { name, uri, lastModified }
+     */
+    @ReactMethod
+    public void listRecordings(Promise promise) {
+        String uriString = getSavedUri();
+        if (uriString == null) {
+            promise.reject("NO_URI", "No recording directory selected.");
+            return;
+        }
+
+        try {
+            Uri treeUri = Uri.parse(uriString);
+            DocumentFile dir = DocumentFile.fromTreeUri(reactContext, treeUri);
+
+            if (dir != null && dir.isDirectory()) {
+                WritableArray fileList = Arguments.createArray();
+                DocumentFile[] files = dir.listFiles();
+
+                for (DocumentFile file : files) {
+                    // Only add files, skip sub-directories
+                    if (!file.isDirectory() && file.getName() != null) {
+                        WritableMap fileMap = Arguments.createMap();
+                        fileMap.putString("name", file.getName());
+                        fileMap.putString("uri", file.getUri().toString());
+                        // Send timestamp as double (milliseconds)
+                        fileMap.putDouble("lastModified", (double) file.lastModified()); 
+                        fileList.pushMap(fileMap);
+                    }
+                }
+                promise.resolve(fileList);
+            } else {
+                promise.reject("DIR_ERROR", "Could not access the directory or it is invalid.");
+            }
+        } catch (Exception e) {
+            promise.reject("LIST_ERROR", "Failed to list recordings: " + e.getMessage(), e);
         }
     }
     

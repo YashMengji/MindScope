@@ -63,9 +63,43 @@ class NativeCallRecordingService {
      }
   }
 
+  /**
+   * Lists all recordings in the currently selected directory.
+   * Returns an array of objects: { name: string, uri: string, lastModified: number }
+   */
+  async listRecordings() {
+    if (!this.isAvailable()) return [];
+    try {
+      // The native module now returns an array of Maps (Objects in JS)
+      const files = await CallRecordingManager.listRecordings();
+      return files || [];
+    } catch (error) {
+      console.error('Failed to list recordings:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Helper: Gets only recordings created today (since midnight local time).
+   */
+  async getTodaysRecordings() {
+    try {
+      const allFiles = await this.listRecordings();
+      
+      // Get midnight timestamp for today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const midnightTime = today.getTime();
+
+      // Filter files modified/created after midnight
+      return allFiles.filter(file => file.lastModified >= midnightTime);
+    } catch (error) {
+      console.error("Error filtering today's recordings:", error);
+      return [];
+    }
+  }
+
   // Get latest call recordings (Placeholder)
-  // Note: With the folder selection method, we rely on the 'onNewCallRecording' event
-  // rather than scanning the whole drive, so this returns an empty list for safety.
   async getLatestRecordings(limit = 5) {
     return { recordings: [], count: 0 };
   }
