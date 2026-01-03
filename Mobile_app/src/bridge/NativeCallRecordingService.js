@@ -4,7 +4,6 @@ const { CallRecordingManager } = NativeModules;
 
 class NativeCallRecordingService {
   constructor() {
-    this.isMonitoring = false;
     this.eventEmitter = null;
     
     if (Platform.OS === 'android' && CallRecordingManager) {
@@ -17,17 +16,25 @@ class NativeCallRecordingService {
     return Platform.OS === 'android' && CallRecordingManager !== undefined;
   }
 
-  // Start monitoring for new call recordings
-  async startMonitoring() {
-    if (!this.isAvailable()) {
-      throw new Error('Call recording monitoring not available on this platform');
-    }
-
+  /**
+   * Opens the system folder picker to let the user select the recording directory.
+   * Returns the URI string of the selected folder, or null if cancelled.
+   */
+  async requestRecordingFolderAccess() {
+    if (!this.isAvailable()) return null;
     try {
-      const result = await CallRecordingManager.startMonitoring();
-      this.isMonitoring = true;
-      console.log('Monitoring started:', result);
-      return true;
+      return await CallRecordingManager.requestRecordingFolderAccess();
+    } catch (error) {
+      console.error('Permission request failed', error);
+      return null;
+    }
+  }
+
+  // Start monitoring the selected folder
+  async startMonitoring() {
+    if (!this.isAvailable()) return;
+    try {
+      return await CallRecordingManager.startMonitoring();
     } catch (error) {
       console.error('Failed to start monitoring:', error);
       throw error;
@@ -36,32 +43,31 @@ class NativeCallRecordingService {
 
   // Stop monitoring
   async stopMonitoring() {
-    if (!this.isAvailable()) return false;
-
+    if (!this.isAvailable()) return;
     try {
-      const result = await CallRecordingManager.stopMonitoring();
-      this.isMonitoring = false;
-      console.log('Monitoring stopped:', result);
-      return true;
+      return await CallRecordingManager.stopMonitoring();
     } catch (error) {
       console.error('Failed to stop monitoring:', error);
       throw error;
     }
   }
 
-  // Get latest call recordings
-  async getLatestRecordings(limit = 10) {
-    if (!this.isAvailable()) {
-      return { recordings: [], count: 0 };
-    }
+  // Get file info (name, size) from a specific URI
+  async getFileInfo(uri) {
+     if (!this.isAvailable()) throw new Error("Native module not available");
+     try {
+       return await CallRecordingManager.getFileInfo(uri);
+     } catch (error) {
+       console.error('Failed to get file info:', error);
+       throw error;
+     }
+  }
 
-    try {
-      const result = await CallRecordingManager.getLatestRecordings(limit);
-      return result;
-    } catch (error) {
-      console.error('Failed to get recordings:', error);
-      return { recordings: [], count: 0 };
-    }
+  // Get latest call recordings (Placeholder)
+  // Note: With the folder selection method, we rely on the 'onNewCallRecording' event
+  // rather than scanning the whole drive, so this returns an empty list for safety.
+  async getLatestRecordings(limit = 5) {
+    return { recordings: [], count: 0 };
   }
 
   // Listen for new recording events
@@ -80,35 +86,6 @@ class NativeCallRecordingService {
     );
 
     return () => subscription.remove();
-  }
-
-  // Get file information
-  async getFileInfo(filePath) {
-    if (!this.isAvailable()) {
-      throw new Error('Native module not available');
-    }
-
-    try {
-      const fileInfo = await CallRecordingManager.getFileInfo(filePath);
-      return fileInfo;
-    } catch (error) {
-      console.error('Failed to get file info:', error);
-      throw error;
-    }
-  }
-
-  // Check if monitoring is active
-  isMonitoringActive() {
-    return this.isMonitoring;
-  }
-
-  // Get default recording paths
-  getDefaultPaths() {
-    if (!this.isAvailable()) {
-      return [];
-    }
-
-    return CallRecordingManager.CALL_RECORDING_PATHS || [];
   }
 }
 

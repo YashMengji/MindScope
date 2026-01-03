@@ -2,141 +2,158 @@ package com.mobileapp;
 
 import android.app.Service;
 import android.content.Intent;
+import android.net.Uri;
+import android.os.Handler;
 import android.os.IBinder;
-import android.os.Environment;
+import android.os.Looper;
 import android.util.Log;
-import java.io.File;
-import java.util.HashMap;
-import java.util.Map;
+
+import androidx.annotation.Nullable;
+import androidx.documentfile.provider.DocumentFile;
+
+import com.facebook.react.bridge.Arguments;
+import com.facebook.react.bridge.WritableMap;
+
+import java.util.HashSet;
+import java.util.Set;
 
 public class CallRecordingService extends Service {
-
-    public static final String ACTION_START_RECORDING = "com.mobileapp.action.START_RECORDING";
-
-    public static final String ACTION_STOP_RECORDING = "com.mobileapp.action.STOP_RECORDING";
-
     private static final String TAG = "CallRecordingService";
-    private Map<String, FileObserverHelper> observers = new HashMap<>();
-
-    // Common call recording directories on Android
-    private static final String[] CALL_RECORDING_PATHS = {
-            Environment.getExternalStorageDirectory().getPath() + "/CallRecordings/",
-            Environment.getExternalStorageDirectory().getPath() + "/Recordings/",
-            Environment.getExternalStorageDirectory().getPath() + "/Voice Recorder/",
-            Environment.getExternalStorageDirectory().getPath() + "/Audio/Recordings/",
-            Environment.getExternalStorageDirectory().getPath() + "/Sounds/",
-            Environment.getExternalStorageDirectory().getPath() + "/Phone/Recordings/",
-            Environment.getExternalStorageDirectory().getPath() + "/MIUI/sound_recorder/call_rec/", // Xiaomi
-            Environment.getExternalStorageDirectory().getPath() + "/Music/Call/", // Samsung
-            Environment.getExternalStorageDirectory().getPath() + "/Call/", // Huawei
-    };
+    private Handler handler;
+    private Runnable monitorRunnable;
+    private boolean isMonitoring = false;
+    private Uri directoryUri;
+    private Set<String> knownFiles = new HashSet<>();
+    
+    // Configuration: How often to check for new files (in milliseconds)
+    // 5000ms = 5 seconds. You can adjust this if needed.
+    private static final long POLLING_INTERVAL = 5000; 
 
     @Override
     public void onCreate() {
         super.onCreate();
-        Log.d(TAG, "Call Recording Service Started");
-        startMonitoring();
-    }
-
-    private void startMonitoring() {
-        for (String path : CALL_RECORDING_PATHS) {
-            File directory = new File(path);
-            if (directory.exists() && directory.isDirectory()) {
-                startWatchingDirectory(path);
-            }
-        }
-
-        // Also watch root of recordings folder recursively
-        File recordingsRoot = new File(Environment.getExternalStorageDirectory(), "Recordings");
-        if (recordingsRoot.exists()) {
-            startWatchingDirectoryRecursive(recordingsRoot.getPath());
-        }
-    }
-
-    private void startWatchingDirectory(String path) {
-        if (observers.containsKey(path))
-            return;
-
-        FileObserverHelper observer = new FileObserverHelper(path,
-                new FileObserverHelper.OnFileChangeListener() {
-                    @Override
-                    public void onFileCreated(String filePath) {
-                        handleNewRecording(filePath);
-                    }
-
-                    @Override
-                    public void onFileModified(String filePath) {
-                        // Handle modification if needed
-                    }
-
-                    @Override
-                    public void onFileDeleted(String filePath) {
-                        // Handle deletion if needed
-                    }
-                });
-
-        observer.startWatching();
-        observers.put(path, observer);
-        Log.d(TAG, "Started watching: " + path);
-    }
-
-    private void startWatchingDirectoryRecursive(String path) {
-        File root = new File(path);
-        if (!root.exists() || !root.isDirectory())
-            return;
-
-        startWatchingDirectory(path);
-
-        // Watch subdirectories
-        File[] subDirs = root.listFiles(File::isDirectory);
-        if (subDirs != null) {
-            for (File subDir : subDirs) {
-                startWatchingDirectoryRecursive(subDir.getPath());
-            }
-        }
-    }
-
-    private void handleNewRecording(String filePath) {
-        Log.d(TAG, "New recording detected: " + filePath);
-
-        // Check if it's a call recording (based on filename patterns)
-        File file = new File(filePath);
-        String fileName = file.getName().toLowerCase();
-
-        // Common patterns in call recording filenames
-        boolean isCallRecording = fileName.contains("call") ||
-                fileName.contains("recording") ||
-                fileName.contains("voice") ||
-                fileName.contains("audio") ||
-                fileName.matches(".*\\d{8}_\\d{6}.*") || // Timestamp pattern
-                fileName.matches(".*call.*\\.(mp3|m4a|amr|wav|3gp)");
-
-        if (isCallRecording) {
-            // Send event to React Native
-            sendRecordingEventToReactNative(filePath);
-        }
-    }
-
-    private void sendRecordingEventToReactNative(String filePath) {
-        // This will be connected to the module
-        CallRecordingModule.sendRecordingEvent(filePath);
+        // We use the Main Looper for the handler to ensure safe communication
+        handler = new Handler(Looper.getMainLooper());
     }
 
     @Override
-    public IBinder onBind(Intent intent) {
-        return null;
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && "START_MONITORING".equals(intent.getAction())) {
+            String uriString = intent.getStringExtra("directoryUri");
+            if (uriString != null) {
+                try {
+                    directoryUri = Uri.parse(uriString);
+                    startPolling();
+                } catch (Exception e) {
+                    Log.e(TAG, "Invalid URI provided", e);
+                }
+            }
+        }
+        // START_STICKY ensures the service restarts if the system kills it to save memory
+        return START_STICKY;
+    }
+
+    private void startPolling() {
+        if (isMonitoring) return;
+        
+        isMonitoring = true;
+        Log.d(TAG, "Started monitoring directory: " + directoryUri);
+
+        // 1. First, scan existing files so we don't treat old recordings as "new"
+        initialScan();
+
+        // 2. Start the recurring task to check for NEW files
+        monitorRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (!isMonitoring) return;
+                
+                scanForNewFiles();
+                
+                // Schedule the next check
+                handler.postDelayed(this, POLLING_INTERVAL);
+            }
+        };
+        // Run immediately
+        handler.post(monitorRunnable);
+    }
+
+    /**
+     * Scans the directory once to populate the 'knownFiles' list.
+     * This prevents the app from alerting you about 100 old recordings when you first start it.
+     */
+    private void initialScan() {
+        try {
+            DocumentFile dir = DocumentFile.fromTreeUri(this, directoryUri);
+            if (dir != null && dir.isDirectory()) {
+                for (DocumentFile file : dir.listFiles()) {
+                    if (!file.isDirectory()) {
+                        // Add the unique URI of the file to our known set
+                        knownFiles.add(file.getUri().toString());
+                    }
+                }
+                Log.d(TAG, "Initial scan complete. Found " + knownFiles.size() + " existing files.");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error during initial scan", e);
+        }
+    }
+
+    /**
+     * Checks the directory for any file that isn't in our 'knownFiles' list.
+     */
+    private void scanForNewFiles() {
+        try {
+            DocumentFile dir = DocumentFile.fromTreeUri(this, directoryUri);
+            if (dir == null || !dir.isDirectory()) return;
+
+            DocumentFile[] files = dir.listFiles();
+            for (DocumentFile file : files) {
+                // Skip sub-directories
+                if (file.isDirectory()) continue;
+
+                String fileUri = file.getUri().toString();
+                
+                // If this file is NOT in our known set, it must be new!
+                if (!knownFiles.contains(fileUri)) {
+                    knownFiles.add(fileUri);
+                    Log.d(TAG, "New recording detected: " + file.getName());
+                    
+                    // Send the event to React Native
+                    sendEventToJS(file);
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error scanning files", e);
+        }
+    }
+
+    /**
+     * Packages the file info into a map and sends it to the Native Module.
+     */
+    private void sendEventToJS(DocumentFile file) {
+        WritableMap params = Arguments.createMap();
+        params.putString("filePath", file.getUri().toString()); // We use the URI as the path
+        params.putString("fileName", file.getName());
+        params.putDouble("timestamp", file.lastModified());
+        
+        // This static method call sends the data to your React Native JS
+        CallRecordingModule.sendEvent("onNewCallRecording", params);
     }
 
     @Override
     public void onDestroy() {
+        isMonitoring = false;
+        if (handler != null && monitorRunnable != null) {
+            handler.removeCallbacks(monitorRunnable);
+        }
         super.onDestroy();
-        stopMonitoring();
     }
 
-    private void stopMonitoring() {
-        for (FileObserverHelper observer : observers.values()) {
-            observer.stopWatching();
-        }
-        observers.clear();
+    @Nullable
+    @Override
+    public IBinder onBind(Intent intent) {
+        // We don't use binding for this service
+        return null;
     }
 }

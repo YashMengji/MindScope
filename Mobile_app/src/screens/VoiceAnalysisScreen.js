@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import NativeCallRecordingService from '../bridge/NativeCallRecordingService';
 import { analyzeVoiceRecording } from '../services/VoiceRecordingService';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Ensure this is installed
 
 const VoiceAnalysisScreen = () => {
   const insets = useSafeAreaInsets();
@@ -19,28 +20,71 @@ const VoiceAnalysisScreen = () => {
   const [analysisResult, setAnalysisResult] = useState(null);
   const [nativeAvailable, setNativeAvailable] = useState(false);
   const [monitoring, setMonitoring] = useState(false);
+  
+  // New state for directory selection
+  const [selectedDirectory, setSelectedDirectory] = useState(null);
+  
   const recordingSubscription = useRef(null);
+  const DIRECTORY_KEY = '@HealthSync:recordingDirectory';
+  const MONITORING_KEY = '@HealthSync:isMonitoring';
 
   useEffect(() => {
-    // Check if native module is available
-    const available = NativeCallRecordingService.isAvailable();
-    setNativeAvailable(available);
-    
-    if (available) {
-      // Load existing recordings on mount
-      loadExistingRecordings();
-    }
-    
+    const init = async () => {
+      // 1. Check Native Module Availability
+      const available = NativeCallRecordingService.isAvailable();
+      setNativeAvailable(available);
+
+      // 2. Load Saved Directory
+      loadSavedDirectory();
+
+      // 3. Load Saved Monitoring State (The Fix)
+      try {
+        const savedMonitoringState = await AsyncStorage.getItem(MONITORING_KEY);
+        
+        // If it was ON, we automatically restart the service and UI state
+        if (savedMonitoringState === 'true' && available) {
+           console.log("Restoring monitoring state...");
+           await NativeCallRecordingService.startMonitoring();
+           setMonitoring(true);
+           
+           // Re-attach listener
+           recordingSubscription.current = NativeCallRecordingService.addRecordingListener(
+             handleNewRecordingDetected
+           );
+        }
+      } catch (e) {
+        console.error("Failed to restore monitoring state", e);
+      }
+
+      if (available) {
+        loadExistingRecordings();
+      }
+    };
+
+    init();
+
     return () => {
-      // Cleanup listener on unmount
       if (recordingSubscription.current) {
         recordingSubscription.current();
       }
     };
   }, []);
 
+  const loadSavedDirectory = async () => {
+    try {
+      const savedDir = await AsyncStorage.getItem(DIRECTORY_KEY);
+      if (savedDir) {
+        setSelectedDirectory(savedDir);
+      }
+    } catch (error) {
+      console.error('Failed to load directory pref:', error);
+    }
+  };
+
   const loadExistingRecordings = async () => {
     try {
+      // If we have a selected directory, we might want to scan it here
+      // For now, keeping original logic if applicable
       const result = await NativeCallRecordingService.getLatestRecordings(5);
       console.log('Existing recordings:', result);
     } catch (error) {
@@ -48,19 +92,53 @@ const VoiceAnalysisScreen = () => {
     }
   };
 
+  // --- NEW: Handle Directory Selection ---
+  const handleSelectDirectory = async () => {
+    try {
+      // 1. Call the native module to open the system folder picker
+      const uriString = await NativeCallRecordingService.requestRecordingFolderAccess();
+
+      if (uriString) {
+        // 2. Update state and save to persistent storage
+        setSelectedDirectory(uriString);
+        await AsyncStorage.setItem(DIRECTORY_KEY, uriString);
+
+        Alert.alert(
+          'Directory Selected',
+          'HealthSync now has permission to access recordings in this folder.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        // User cancelled the picker
+        console.log("Folder selection cancelled");
+      }
+    } catch (error) {
+      console.error('Directory selection error:', error);
+      Alert.alert('Error', 'Failed to select directory: ' + error.message);
+    }
+  };
+
+  // --- Existing Monitoring Logic ---
   const handleStartMonitoring = async () => {
+    if (!selectedDirectory) {
+      Alert.alert(
+        'Setup Required', 
+        'Please select the call recording directory first.'
+      );
+      return;
+    }
+
     try {
       await NativeCallRecordingService.startMonitoring();
       setMonitoring(true);
       
-      // Listen for new recordings
       recordingSubscription.current = NativeCallRecordingService.addRecordingListener(
         handleNewRecordingDetected
       );
       
       Alert.alert(
         'Monitoring Active',
-        'App will now automatically detect new call recordings.',
+        'App will now automatically detect new call recordings in the selected folder.',
         [{ text: 'OK' }]
       );
     } catch (error) {
@@ -99,8 +177,6 @@ const VoiceAnalysisScreen = () => {
   const analyzeRecording = async (filePath) => {
     try {
       setIsAnalyzing(true);
-      
-      // Get file info from native module
       const fileInfo = await NativeCallRecordingService.getFileInfo(filePath);
       
       const recording = {
@@ -136,9 +212,6 @@ const VoiceAnalysisScreen = () => {
     return mimeTypes[ext] || 'audio/mpeg';
   };
 
-  // ... (rest of the component remains similar to previous version)
-  // Add specific UI elements for native monitoring
-
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
@@ -170,7 +243,37 @@ const VoiceAnalysisScreen = () => {
           </View>
         </View>
 
-        {/* Monitoring Controls (Android only) */}
+        {/* --- NEW: Directory Selection Card --- */}
+        {nativeAvailable && (
+          <View style={styles.setupCard}>
+            <Text style={styles.cardTitle}>Setup</Text>
+            <Text style={styles.cardDescription}>
+              Select the folder where your phone saves call recordings. 
+              This allows HealthSync to detect and analyze them.
+            </Text>
+            
+            <TouchableOpacity 
+              style={styles.actionButton} 
+              onPress={handleSelectDirectory}
+            >
+              <Text style={styles.actionButtonText}>
+                Select Call Recording Directory
+              </Text>
+            </TouchableOpacity>
+
+            {/* Display Selected Path if Available */}
+            {selectedDirectory && (
+              <View style={styles.pathContainer}>
+                <Text style={styles.pathLabel}>Selected Directory:</Text>
+                <Text style={styles.pathText} numberOfLines={2}>
+                  {decodeURIComponent(selectedDirectory)}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Monitoring Controls */}
         {nativeAvailable && (
           <View style={styles.monitoringCard}>
             <Text style={styles.monitoringTitle}>Automatic Monitoring</Text>
@@ -181,14 +284,22 @@ const VoiceAnalysisScreen = () => {
             <TouchableOpacity
               style={[
                 styles.monitoringButton,
-                monitoring && styles.monitoringActiveButton
+                monitoring && styles.monitoringActiveButton,
+                !selectedDirectory && styles.monitoringDisabledButton // Disable if no dir
               ]}
               onPress={monitoring ? handleStopMonitoring : handleStartMonitoring}
+              disabled={!selectedDirectory}
             >
               <Text style={styles.monitoringButtonText}>
                 {monitoring ? 'Stop Auto-Monitoring' : 'Start Auto-Monitoring'}
               </Text>
             </TouchableOpacity>
+            
+            {!selectedDirectory && (
+               <Text style={styles.warningText}>
+                 ⚠️ Please select a directory above to enable monitoring.
+               </Text>
+            )}
             
             {monitoring && (
               <Text style={styles.monitoringStatus}>
@@ -198,7 +309,14 @@ const VoiceAnalysisScreen = () => {
           </View>
         )}
         
-        {/* ... rest of the UI ... */}
+        {/* Analysis Status */}
+        {isAnalyzing && (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#0A2E5B" />
+                <Text style={styles.loadingText}>Analyzing recording...</Text>
+            </View>
+        )}
+
       </ScrollView>
     </View>
   );
@@ -209,7 +327,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F8F9FA",
   },
-
   header: {
     paddingHorizontal: 20,
     paddingVertical: 10,
@@ -217,25 +334,22 @@ const styles = StyleSheet.create({
     borderBottomColor: "#EEE",
     backgroundColor: "#F8F9FA",
   },
-
   headerTitle: {
     fontSize: 20,
     fontWeight: "bold",
     color: "#333333",
   },
-
   headerSubtitle: {
     fontSize: 14,
     color: "#333333",
     marginTop: 2,
   },
-
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
-
-  /* ---------- STATUS CARD ---------- */
+  
+  /* Status Card */
   statusCard: {
     marginTop: 20,
     backgroundColor: "#ffffff",
@@ -247,32 +361,80 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
   },
-
   statusTitle: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#0A2E5B",
     marginBottom: 12,
   },
-
   statusRow: {
     flexDirection: "row",
     alignItems: "center",
   },
-
   statusIndicator: {
     width: 12,
     height: 12,
     borderRadius: 6,
     marginRight: 10,
   },
-
   statusText: {
     fontSize: 14,
     color: "#333",
   },
 
-  /* ---------- MONITORING CARD ---------- */
+  /* Setup Card (New) */
+  setupCard: {
+    marginTop: 20,
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#0A2E5B",
+    marginBottom: 8,
+  },
+  cardDescription: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  actionButton: {
+    backgroundColor: "#2196F3", // Different color to distinguish setup
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  actionButtonText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  pathContainer: {
+    marginTop: 15,
+    padding: 10,
+    backgroundColor: "#F0F4F8",
+    borderRadius: 8,
+  },
+  pathLabel: {
+    fontSize: 12,
+    color: "#666",
+    marginBottom: 4,
+  },
+  pathText: {
+    fontSize: 13,
+    color: "#333",
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+
+  /* Monitoring Card */
   monitoringCard: {
     marginTop: 30,
     backgroundColor: "#ffffff",
@@ -284,38 +446,35 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
   },
-
   monitoringTitle: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#0A2E5B",
     marginBottom: 8,
   },
-
   monitoringDescription: {
     fontSize: 14,
     color: "#666",
     marginBottom: 16,
     lineHeight: 20,
   },
-
   monitoringButton: {
     backgroundColor: "#0A2E5B",
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: "center",
   },
-
   monitoringActiveButton: {
     backgroundColor: "#F44336",
   },
-
+  monitoringDisabledButton: {
+    backgroundColor: "#B0BEC5", // Greyed out
+  },
   monitoringButtonText: {
     color: "#ffffff",
     fontSize: 14,
     fontWeight: "bold",
   },
-
   monitoringStatus: {
     marginTop: 12,
     fontSize: 12,
@@ -323,55 +482,23 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontWeight: "600",
   },
+  warningText: {
+    marginTop: 10,
+    fontSize: 12,
+    color: "#FF9800",
+    textAlign: "center",
+  },
 
-  /* ---------- LOADING / RESULT ---------- */
+  /* Loading */
   loadingContainer: {
     marginTop: 30,
     alignItems: "center",
   },
-
   loadingText: {
     marginTop: 10,
     fontSize: 14,
     color: "#666",
   },
-
-  resultCard: {
-    marginTop: 30,
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-
-  resultTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#0A2E5B",
-    marginBottom: 10,
-  },
-
-  resultText: {
-    fontSize: 14,
-    color: "#333",
-    lineHeight: 20,
-  },
-
-  errorText: {
-    fontSize: 14,
-    color: "#F44336",
-    textAlign: "center",
-    marginTop: 10,
-  },
-
-  bottomSpacing: {
-    height: 20,
-  },
 });
-
 
 export default VoiceAnalysisScreen;
