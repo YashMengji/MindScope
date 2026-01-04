@@ -8,12 +8,14 @@ import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
+import android.content.SharedPreferences;
 
 /**
  * React Native Module to manage the Screen Controller Accessibility Service.
  */
 public class ScreenControllerModule extends ReactContextBaseJavaModule {
     private final ReactApplicationContext reactContext;
+    private static final String PREFS_NAME = "ScreenPrefs";
 
     public ScreenControllerModule(ReactApplicationContext reactContext) {
         super(reactContext);
@@ -23,6 +25,22 @@ public class ScreenControllerModule extends ReactContextBaseJavaModule {
     @Override
     public String getName() {
         return "ScreenController";
+    }
+
+    // --- THIS IS THE FUNCTION YOUR UI CALLS ---
+    @ReactMethod
+    public void updateServiceSettings(String featureKey, boolean enabled, int timeInMins) {
+        SharedPreferences prefs = getReactApplicationContext()
+                .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        
+        SharedPreferences.Editor editor = prefs.edit();
+        // Save the state (enabled/disabled)
+        editor.putBoolean(featureKey + "_enabled", enabled);
+        // Save the duration (minutes)
+        editor.putInt(featureKey + "_time", timeInMins);
+        editor.apply(); 
+        
+        android.util.Log.d("ScreenController", "Saved: " + featureKey + " Enabled: " + enabled + " Time: " + timeInMins);
     }
 
     /**

@@ -22,34 +22,71 @@ import java.util.Map;
  */
 public class ScreenControllerService extends AccessibilityService {
     private static final String TAG = "ScreenController";
-    
-    // --- Configurable Limits (These could be fetched from SharedPreferences/React Native) ---
-    private static final long DAILY_LIMIT_MS = 30 * 60 * 1000; // 30 mins
-    private static final long SESSION_LIMIT_MS = 10 * 60 * 1000; // 10 mins
-    private static final long COOLDOWN_DURATION_MS = 15 * 60 * 1000; // 15 mins
+    private static final String PREFS_NAME = "ScreenPrefs"; // Matches Bridge Module
     private static final String TARGET_PACKAGE = "com.instagram.android";
+
+    // --- DYNAMIC SETTINGS (Updated from SharedPreferences) ---
+    private long dailyLimitMs = 30 * 60 * 1000; 
+    private long sessionLimitMs = 10 * 60 * 1000;
+    private long cooldownDurationMs = 15 * 60 * 1000;
+    private long warningThresholdMs = 8 * 60 * 1000;
+
+    // --- FEATURE FLAGS ---
+    private boolean isTimeLimitEnabled = false;
+    private boolean isSessionLimitEnabled = false;
+    private boolean isCooldownEnabled = false;
+    private boolean isWarningEnabled = false;
 
     // --- State Tracking ---
     private String currentPackage = "";
     private long sessionStartTime = 0;
-    private long totalDailyUsage = 0;
+    private long totalDailyUsage = 0; // In a production app, persist this daily
     private long cooldownStartTime = 0;
     
-    private Handler handler = new Handler(Looper.getMainLooper());
     private WindowManager windowManager;
     private View overlayView;
     private boolean isOverlayShowing = false;
+    private final Handler handler = new Handler(Looper.getMainLooper());
 
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
-        Log.d(TAG, "Screen Controller Service Connected");
+        
+        // --- ADDITION: Initial load of settings ---
+        refreshSettings();
+        Log.d(TAG, "Service Connected and Settings Loaded");
+    }
+
+    /**
+     * READS Shared Preferences saved by ScreenControllerModule.java
+     */
+    private void refreshSettings() {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        
+        // 1. Update Enabled/Disabled Flags
+        isTimeLimitEnabled = prefs.getBoolean("timeBased_enabled", false);
+        isSessionLimitEnabled = prefs.getBoolean("sessionBased_enabled", false);
+        isCooldownEnabled = prefs.getBoolean("cooldown_enabled", false);
+        isWarningEnabled = prefs.getBoolean("warningOverlay_enabled", false);
+
+        // 2. Update Time Values (Converting mins from Prefs to Milliseconds)
+        dailyLimitMs = prefs.getInt("timeBased_time", 30) * 60 * 1000L;
+        sessionLimitMs = prefs.getInt("sessionBased_time", 10) * 60 * 1000L;
+        cooldownDurationMs = prefs.getInt("cooldown_time", 15) * 60 * 1000L;
+        
+        // Warning threshold is usually slightly less than session limit
+        warningThresholdMs = Math.max(0, sessionLimitMs - (2 * 60 * 1000L));
+
+        Log.d(TAG, "Settings Refreshed: TimeLimitEnabled=" + isTimeLimitEnabled + ", Limit=" + (dailyLimitMs/60000) + "m");
     }
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
+        // --- ADDITION: Refresh settings on app switch to ensure latest UI state is used ---
         if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            refreshSettings();
+            
             String packageName = event.getPackageName() != null ? event.getPackageName().toString() : "";
             handlePackageChange(packageName);
         }
@@ -58,28 +95,30 @@ public class ScreenControllerService extends AccessibilityService {
     private void handlePackageChange(String newPackage) {
         long now = System.currentTimeMillis();
 
-        // 1. If leaving a restricted app, finalize session usage
+        // App Switch Logic: Moving away from Target
         if (currentPackage.equals(TARGET_PACKAGE) && !newPackage.equals(TARGET_PACKAGE)) {
             long sessionDuration = now - sessionStartTime;
             totalDailyUsage += sessionDuration;
-            Log.d(TAG, "Left " + TARGET_PACKAGE + ". Session lasted: " + (sessionDuration / 1000) + "s");
+            handler.removeCallbacksAndMessages(null);
             removeOverlay();
         }
 
-        // 2. Update current state
         currentPackage = newPackage;
 
-        // 3. If entering a restricted app
+        // Moving into Target (Instagram)
         if (currentPackage.equals(TARGET_PACKAGE)) {
-            // CHECK COOLDOWN
-            if (now < cooldownStartTime + COOLDOWN_DURATION_MS) {
-                showBlockingOverlay("Cooldown Active. Wait 15 mins.");
+            
+            // --- ADDITION: Check Cooldown Feature ---
+            if (isCooldownEnabled && now < cooldownStartTime + cooldownDurationMs) {
+                showBlockingOverlay("Cooldown active. Please wait.");
+                handler.postDelayed(() -> performGlobalAction(GLOBAL_ACTION_BACK), 2000);
                 return;
             }
 
-            // CHECK DAILY LIMIT
-            if (totalDailyUsage >= DAILY_LIMIT_MS) {
-                showBlockingOverlay("Daily Limit Reached (30m).");
+            // --- ADDITION: Check Daily Time Limit Feature ---
+            if (isTimeLimitEnabled && totalDailyUsage >= dailyLimitMs) {
+                showBlockingOverlay("Daily limit reached for Instagram.");
+                handler.postDelayed(() -> performGlobalAction(GLOBAL_ACTION_BACK), 2000);
                 return;
             }
 
@@ -97,22 +136,22 @@ public class ScreenControllerService extends AccessibilityService {
                     long now = System.currentTimeMillis();
                     long currentSessionDuration = now - sessionStartTime;
 
-                    // Warning at 8 minutes
-                    if (currentSessionDuration >= (8 * 60 * 1000) && currentSessionDuration < SESSION_LIMIT_MS) {
-                        showWarning("You've been scrolling for 8 minutes!");
+                    // --- ADDITION: Session Warning Feature ---
+                    if (isWarningEnabled && currentSessionDuration >= warningThresholdMs && currentSessionDuration < sessionLimitMs) {
+                        showWarning("Your session is almost over!");
                     }
 
-                    // Block at 10 minutes (Session Limit)
-                    if (currentSessionDuration >= SESSION_LIMIT_MS) {
+                    // --- ADDITION: Session Limit Feature ---
+                    if (isSessionLimitEnabled && currentSessionDuration >= sessionLimitMs) {
                         cooldownStartTime = System.currentTimeMillis();
-                        showBlockingOverlay("Session Limit Reached. Cooldown Started.");
-                        performGlobalAction(GLOBAL_ACTION_BACK); // Force exit
+                        showBlockingOverlay("Session limit reached.");
+                        performGlobalAction(GLOBAL_ACTION_BACK);
                     } else {
-                        handler.postDelayed(this, 30000); // Check every 30 seconds
+                        handler.postDelayed(this, 10000); // Check every 10 seconds
                     }
                 }
             }
-        }, 30000);
+        }, 10000);
     }
 
     private void showBlockingOverlay(String message) {
@@ -128,15 +167,20 @@ public class ScreenControllerService extends AccessibilityService {
             params.gravity = Gravity.CENTER;
 
             overlayView = LayoutInflater.from(this).inflate(android.R.layout.simple_list_item_1, null);
-            overlayView.setBackgroundColor(0xCC000000); // Dark semi-transparent
+            overlayView.setBackgroundColor(0xEE000000); // Darker for blocking
             
             TextView text = overlayView.findViewById(android.R.id.text1);
             text.setText(message);
             text.setTextColor(0xFFFFFFFF);
             text.setGravity(Gravity.CENTER);
+            text.setTextSize(20);
 
-            windowManager.addView(overlayView, params);
-            isOverlayShowing = true;
+            try {
+                windowManager.addView(overlayView, params);
+                isOverlayShowing = true;
+            } catch (Exception e) {
+                Log.e(TAG, "Overlay Error: " + e.getMessage());
+            }
         });
     }
 
@@ -147,7 +191,11 @@ public class ScreenControllerService extends AccessibilityService {
 
     private void removeOverlay() {
         if (isOverlayShowing && overlayView != null) {
-            windowManager.removeView(overlayView);
+            try {
+                windowManager.removeView(overlayView);
+            } catch (Exception e) {
+                Log.e(TAG, "Error removing overlay: " + e.getMessage());
+            }
             isOverlayShowing = false;
         }
     }
