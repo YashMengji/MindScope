@@ -6,7 +6,8 @@ import FormData from "form-data";
 // Constants
 // NOTE: If using a real device, replace 'localhost' with your machine's IP address 
 // or use 'adb reverse tcp:3000 tcp:3000'
-const BASE_URL = "http://localhost:8000";
+const FASTAPI_URL = "http://localhost:8000";
+const EXPRESS_URL = "http://localhost:3000/api";
 
 export const analyzeVoiceRecording = async (recordingFile) => {
   try {
@@ -22,7 +23,7 @@ export const analyzeVoiceRecording = async (recordingFile) => {
       type: recordingFile.type || "audio/mp4", // Default to mp4 if missing
     });
 
-    const response = await axios.post(`${BASE_URL}/analyze`, formData, {
+    const response = await axios.post(`${FASTAPI_URL}/analyze`, formData, {
       headers: {
         "Content-Type": "multipart/form-data",
         // Add Authorization if your backend requires it
@@ -74,3 +75,48 @@ export const uploadBatchRecordings = async (recordings) => {
 
   return results;
 };
+
+export const saveInferenceResult = async (inferenceData) => {
+  try {
+    const token = await getToken();
+    // console.log("Token retrieved in service:", token);
+
+    const response = await api.post(
+      "/voice",
+      inferenceData,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    console.log("Inference result saved successfully.");
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Error saving inference result:", error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+export const fetchRecordingByName = async (fileName) => {
+  try {
+    const token = await getToken();
+    // console.log("Token retrieved in service:", token);
+
+    const response = await api.post(
+      "/voice/fileName",
+      fileName,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    console.log("Inference result saved successfully.");
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Error searching inference result:", error.message);
+    return { success: false, error: error.message };
+  }
+}

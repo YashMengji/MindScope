@@ -13,6 +13,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import NativeCallRecordingService from '../bridge/NativeCallRecordingService';
 import { analyzeVoiceRecording, uploadBatchRecordings } from '../services/VoiceRecordingService'; // Updated import
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { saveInferenceResult } from '../services/VoiceRecordingService';
+import { fetchRecordingByName } from '../services/VoiceRecordingService';
 
 const VoiceAnalysisScreen = () => {
   const insets = useSafeAreaInsets();
@@ -21,12 +23,12 @@ const VoiceAnalysisScreen = () => {
   const [analysisResult, setAnalysisResult] = useState(null);
   const [nativeAvailable, setNativeAvailable] = useState(false);
   const [monitoring, setMonitoring] = useState(false);
-  
+
   // State for directory selection
   const [selectedDirectory, setSelectedDirectory] = useState(null);
   // State for storing the list of recording objects
   const [recordingList, setRecordingList] = useState([]);
-  
+
   const recordingSubscription = useRef(null);
   const DIRECTORY_KEY = '@HealthSync:recordingDirectory';
   const MONITORING_KEY = '@HealthSync:isMonitoring';
@@ -43,22 +45,22 @@ const VoiceAnalysisScreen = () => {
       // 3. Load Saved Monitoring State
       try {
         const savedMonitoringState = await AsyncStorage.getItem(MONITORING_KEY);
-        
+
         // If it was ON, we automatically restart the service and UI state
         if (savedMonitoringState === 'true' && available) {
-           console.log("Restoring monitoring state...");
-           await NativeCallRecordingService.startMonitoring();
-           setMonitoring(true);
-           
-           // Re-attach listener
-           recordingSubscription.current = NativeCallRecordingService.addRecordingListener(
-             handleNewRecordingDetected
-           );
+          console.log("Restoring monitoring state...");
+          await NativeCallRecordingService.startMonitoring();
+          setMonitoring(true);
+
+          // Re-attach listener
+          recordingSubscription.current = NativeCallRecordingService.addRecordingListener(
+            handleNewRecordingDetected
+          );
         }
       } catch (e) {
         console.error("Failed to restore monitoring state", e);
       }
-      
+
       // 4. Initial fetch of recordings list if directory is already set
       if (available) {
         fetchRecordingsList();
@@ -110,7 +112,7 @@ const VoiceAnalysisScreen = () => {
           'HealthSync now has permission to access recordings in this folder.',
           [{ text: 'OK' }]
         );
-        
+
         // Immediately refresh the list
         fetchRecordingsList();
       }
@@ -131,11 +133,11 @@ const VoiceAnalysisScreen = () => {
       await NativeCallRecordingService.startMonitoring();
       await AsyncStorage.setItem(MONITORING_KEY, 'true');
       setMonitoring(true);
-      
+
       recordingSubscription.current = NativeCallRecordingService.addRecordingListener(
         handleNewRecordingDetected
       );
-      
+
       Alert.alert('Monitoring Active', 'App will now automatically detect new call recordings.');
       fetchRecordingsList();
     } catch (error) {
@@ -148,7 +150,7 @@ const VoiceAnalysisScreen = () => {
       await NativeCallRecordingService.stopMonitoring();
       await AsyncStorage.setItem(MONITORING_KEY, 'false');
       setMonitoring(false);
-      
+
       if (recordingSubscription.current) {
         recordingSubscription.current();
         recordingSubscription.current = null;
@@ -158,6 +160,7 @@ const VoiceAnalysisScreen = () => {
     }
   };
 
+  // UNUSED
   const handleNewRecordingDetected = async (recordingData) => {
     fetchRecordingsList();
     Alert.alert(
@@ -170,16 +173,27 @@ const VoiceAnalysisScreen = () => {
     );
   };
 
+  const uploadToServer = async (results) => {
+    // Placeholder for any additional server-side logging if needed
+    results.forEach(async (result) => {
+        console.log(`File: ${result.fileName}, Status: ${result.status}`);
+        if(await fetchRecordingByName(result.fileName) == null && result.status === 'uploaded'){
+          await saveInferenceResult(result);
+        }
+      }
+    )
+  };
+
   // --- NEW: Sync Logic ---
   const handleSyncToday = async () => {
     if (!selectedDirectory) return;
-    
+
     try {
       setIsUploading(true);
-      
+
       // 1. Get Today's Recordings
       const todaysFiles = await NativeCallRecordingService.getTodaysRecordings();
-      
+
       if (todaysFiles.length === 0) {
         Alert.alert("No New Calls", "No recordings found for today.");
         setIsUploading(false);
@@ -192,16 +206,17 @@ const VoiceAnalysisScreen = () => {
         `Found ${todaysFiles.length} recordings from today. Upload them now?`,
         [
           { text: "Cancel", onPress: () => setIsUploading(false), style: "cancel" },
-          { 
-            text: "Upload", 
+          {
+            text: "Upload",
             onPress: async () => {
               // 3. Perform Batch Upload
               const results = await uploadBatchRecordings(todaysFiles);
-              
+              uploadToServer(results);
+
               // 4. Summarize Results
               const successCount = results.filter(r => r.status === 'uploaded').length;
               const failCount = results.length - successCount;
-              
+
               Alert.alert(
                 "Sync Complete",
                 `Successfully uploaded: ${successCount}\nFailed: ${failCount}`
@@ -211,7 +226,7 @@ const VoiceAnalysisScreen = () => {
           }
         ]
       );
-      
+
     } catch (error) {
       console.error("Sync error:", error);
       Alert.alert("Error", "Failed to sync recordings.");
@@ -225,15 +240,15 @@ const VoiceAnalysisScreen = () => {
       // If passing a raw path string, we need to mock a file object. 
       // Ideally, pass the object from the list if available.
       const fileInfo = await NativeCallRecordingService.getFileInfo(filePath);
-      
+
       const recording = {
         uri: `file://${filePath}`,
         name: fileInfo.name,
         type: getMimeType(fileInfo.name),
       };
-      
+
       const result = await analyzeVoiceRecording(recording);
-      
+
       if (result.success) {
         setAnalysisResult(result);
         Alert.alert("Analysis Complete", "Voice analysis finished successfully.");
@@ -265,8 +280,8 @@ const VoiceAnalysisScreen = () => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Voice Call Analysis</Text>
         <Text style={styles.headerSubtitle}>
-          {nativeAvailable 
-            ? 'Automatic call recording detection enabled' 
+          {nativeAvailable
+            ? 'Automatic call recording detection enabled'
             : 'Manual file selection required'}
         </Text>
       </View>
@@ -281,8 +296,8 @@ const VoiceAnalysisScreen = () => {
               { backgroundColor: nativeAvailable ? '#4CAF50' : '#F44336' }
             ]} />
             <Text style={styles.statusText}>
-              {nativeAvailable 
-                ? 'Android native module active' 
+              {nativeAvailable
+                ? 'Android native module active'
                 : 'Native module not available'}
             </Text>
           </View>
@@ -295,9 +310,9 @@ const VoiceAnalysisScreen = () => {
             <Text style={styles.cardDescription}>
               Select the folder where your phone saves call recordings.
             </Text>
-            
-            <TouchableOpacity 
-              style={styles.actionButton} 
+
+            <TouchableOpacity
+              style={styles.actionButton}
               onPress={handleSelectDirectory}
             >
               <Text style={styles.actionButtonText}>
@@ -320,7 +335,7 @@ const VoiceAnalysisScreen = () => {
         {nativeAvailable && (
           <View style={styles.monitoringCard}>
             <Text style={styles.monitoringTitle}>Actions</Text>
-            
+
             {/* Monitor Button */}
             <TouchableOpacity
               style={[
@@ -335,8 +350,8 @@ const VoiceAnalysisScreen = () => {
                 {monitoring ? 'Stop Auto-Monitoring' : 'Start Auto-Monitoring'}
               </Text>
             </TouchableOpacity>
-            
-            <View style={{height: 10}} />
+
+            <View style={{ height: 10 }} />
 
             {/* NEW: Sync Button */}
             <TouchableOpacity
@@ -347,21 +362,21 @@ const VoiceAnalysisScreen = () => {
               onPress={handleSyncToday}
               disabled={!selectedDirectory || isUploading}
             >
-               {isUploading ? (
-                 <ActivityIndicator color="#FFF" size="small" />
-               ) : (
-                 <Text style={styles.monitoringButtonText}>
-                   ☁️ Sync Today's Calls to Cloud
-                 </Text>
-               )}
+              {isUploading ? (
+                <ActivityIndicator color="#FFF" size="small" />
+              ) : (
+                <Text style={styles.monitoringButtonText}>
+                  ☁️ Sync Today's Calls to Cloud
+                </Text>
+              )}
             </TouchableOpacity>
 
             {!selectedDirectory && (
-               <Text style={styles.warningText}>
-                 ⚠️ Please select a directory above to enable features.
-               </Text>
+              <Text style={styles.warningText}>
+                ⚠️ Please select a directory above to enable features.
+              </Text>
             )}
-            
+
             {monitoring && (
               <Text style={styles.monitoringStatus}>
                 🔵 Monitoring active
@@ -375,7 +390,7 @@ const VoiceAnalysisScreen = () => {
                 <Text style={styles.listTitle}>
                   Found Recordings ({recordingList.length})
                 </Text>
-                
+
                 {recordingList.length === 0 ? (
                   <Text style={styles.emptyListText}>No recordings found.</Text>
                 ) : (
@@ -393,13 +408,13 @@ const VoiceAnalysisScreen = () => {
             )}
           </View>
         )}
-        
+
         {/* Analysis Loading State */}
         {isAnalyzing && (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#0A2E5B" />
-                <Text style={styles.loadingText}>Analyzing recording...</Text>
-            </View>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#0A2E5B" />
+            <Text style={styles.loadingText}>Analyzing recording...</Text>
+          </View>
         )}
 
       </ScrollView>
@@ -433,7 +448,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
-  
+
   /* Status Card */
   statusCard: {
     marginTop: 20,
