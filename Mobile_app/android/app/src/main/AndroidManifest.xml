@@ -26,6 +26,7 @@
     
     <service
     android:name=".ChatAccessibilityService"
+    android:label="@string/chat_service_label"
     android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
     android:exported="true">
       <intent-filter>
@@ -41,5 +42,19 @@
       android:enabled="true"
       android:exported="false"
       android:foregroundServiceType="dataSync" />
+
+    <!-- Screen Controller Accessibility Service Declaration -->
+    <service
+        android:name=".ScreenControllerService"
+        android:label="@string/screen_service_label"
+        android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+        android:exported="true">
+        <intent-filter>
+            <action android:name="android.accessibilityservice.AccessibilityService" />
+        </intent-filter>
+        <meta-data
+            android:name="android.accessibilityservice"
+            android:resource="@xml/screen_controller_config" />
+    </service>
   </application>
 </manifest>

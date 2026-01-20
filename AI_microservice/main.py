@@ -10,6 +10,7 @@ import time
 # ✅ Google Gemini SDK
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
+from chat_session_analysis import analyze_chat_session
 
 # ✅ Local ML Imports
 from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification
@@ -99,17 +100,17 @@ def load_resources():
         logger.error(e)
 
     # 2. LOAD LOCAL MODELS
-    try:
-        logger.info("Loading DeHateBERT model...")
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
-        model = AutoModelForSequenceClassification.from_pretrained(MODEL_ID)
-        model.to(DEVICE)
-        model.eval()
+    # try:
+    #     logger.info("Loading DeHateBERT model...")
+    #     tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
+    #     model = AutoModelForSequenceClassification.from_pretrained(MODEL_ID)
+    #     model.to(DEVICE)
+    #     model.eval()
 
-        logger.info("Loading Emotion Classifier...")
-        emotion_classifier = pipeline("text-classification", model="SamLowe/roberta-base-go_emotions", top_k=3)
-    except Exception as e:
-        logger.error(f"Error loading local models: {e}")
+    #     logger.info("Loading Emotion Classifier...")
+    #     emotion_classifier = pipeline("text-classification", model="SamLowe/roberta-base-go_emotions", top_k=3)
+    # except Exception as e:
+    #     logger.error(f"Error loading local models: {e}")
 
 # --------------------------------------------------------------------------
 # PYDANTIC SCHEMAS
@@ -241,31 +242,16 @@ def predict_toxicity_local(message: str):
     score = float(probabilities[1])
     return {"is_toxic": score >= TOXICITY_THRESHOLD, "toxicity_score": score}
 
-@app.post("/chat-text-data")
-async def receive_chat_data(session: ChatSession):
-    try:
-        logger.info(f"=== NEW CHAT SESSION: {session.sessionId} ===")
-        analysis = []
-        if session.messages:
-            for message in session.messages:
-                toxicity_inference = predict_toxicity_local(message)
-                fb = "Please be more polite." if toxicity_inference["is_toxic"] else "Good job."
-                
-                raw_emotions = emotion_classifier(message)[0] if emotion_classifier else []
-                emotions = [{"label": e["label"], "score": float(e["score"])} for e in raw_emotions]
 
-                analysis.append({
-                    "message": message,
-                    "toxicity_inference": toxicity_inference,
-                    "feedback": fb,
-                    "emotions": emotions
-                })
-        
-        return {
-            "status": "success",
-            "session_id": session.sessionId,
-            "analysis": analysis
-        }
-    except Exception as e:
-        logger.error(f"Error processing chat data: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/chat-text-data")
+def receive_chat_data(chat_session_data: ChatSession):
+    print(chat_session_data)
+    chat_inference = analyze_chat_session(chat_session_data)
+    print(chat_inference)
+    return {
+        "status": "success",
+        "session_id": chat_session_data.sessionId,
+        "analysis": json.loads(chat_inference)
+    }
+
