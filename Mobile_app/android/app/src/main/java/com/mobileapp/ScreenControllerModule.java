@@ -9,6 +9,7 @@ import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import android.content.SharedPreferences;
+import android.util.Log;
 
 /**
  * React Native Module to manage the Screen Controller Accessibility Service.
@@ -16,6 +17,7 @@ import android.content.SharedPreferences;
 public class ScreenControllerModule extends ReactContextBaseJavaModule {
     private final ReactApplicationContext reactContext;
     private static final String PREFS_NAME = "ScreenPrefs";
+    private static final String TAG = "ScreenControllerService";
 
     public ScreenControllerModule(ReactApplicationContext reactContext) {
         super(reactContext);
@@ -40,7 +42,7 @@ public class ScreenControllerModule extends ReactContextBaseJavaModule {
         editor.putInt(featureKey + "_time", timeInMins);
         editor.apply(); 
         
-        android.util.Log.d("ScreenController", "Saved: " + featureKey + " Enabled: " + enabled + " Time: " + timeInMins);
+        Log.d(TAG, String.format("ScreenController | Saved: %s Enabled: %b Time: %d", featureKey, enabled, timeInMins));
     }
 
     /**
@@ -48,30 +50,37 @@ public class ScreenControllerModule extends ReactContextBaseJavaModule {
      */
     @ReactMethod
     public void isServiceEnabled(Promise promise) {
-        promise.resolve(isAccessibilityServiceEnabled());
+        try {
+            boolean isEnabled = isAccessibilityServiceEnabled(getReactApplicationContext(), ScreenControllerService.class.getName());
+            promise.resolve(isEnabled);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to check service status", e);
+            promise.reject("CHECK_STATUS_ERROR", "Could not check accessibility service status.", e);
+        }
     }
 
     /**
      * Helper to check the system settings for the specific accessibility service.
      */
-    private boolean isAccessibilityServiceEnabled() {
-        Context context = getReactApplicationContext();
-        String service = context.getPackageName() + "/" + ScreenControllerService.class.getCanonicalName();
+    private boolean isAccessibilityServiceEnabled(Context context, String accessibilityService) {
+        String service = context.getPackageName() + "/" + accessibilityService;
         int accessibilityEnabled = 0;
         try {
-            accessibilityEnabled = Settings.Secure.getInt(context.getContentResolver(), android.provider.Settings.Secure.ACCESSIBILITY_ENABLED);
+            accessibilityEnabled = Settings.Secure.getInt(context.getContentResolver(),
+                    Settings.Secure.ACCESSIBILITY_ENABLED);
         } catch (Settings.SettingNotFoundException e) {
-            return false;
+            Log.e(TAG, "Error finding accessibility setting: " + e.getMessage());
         }
 
         if (accessibilityEnabled == 1) {
-            String settingValue = Settings.Secure.getString(context.getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+            TextUtils.SimpleStringSplitter mStringColonSplitter = new TextUtils.SimpleStringSplitter(':');
+            String settingValue = Settings.Secure.getString(context.getContentResolver(),
+                    Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
             if (settingValue != null) {
-                TextUtils.SimpleStringSplitter splitter = new TextUtils.SimpleStringSplitter(':');
-                splitter.setString(settingValue);
-                while (splitter.hasNext()) {
-                    String accessibilityService = splitter.next();
-                    if (accessibilityService.equalsIgnoreCase(service)) {
+                mStringColonSplitter.setString(settingValue);
+                while (mStringColonSplitter.hasNext()) {
+                    String accessibilityServiceCandidate = mStringColonSplitter.next();
+                    if (accessibilityServiceCandidate.equalsIgnoreCase(service)) {
                         return true;
                     }
                 }

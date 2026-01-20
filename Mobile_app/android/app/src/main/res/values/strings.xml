@@ -1,6 +1,16 @@
 <resources>
-  <string name="app_name">Mobile_app</string>
-  <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
-  <string name="expo_splash_screen_status_bar_translucent" translatable="false">false</string>
-  <string name="accessibility_service_description">Accessibility service for MindScope app.</string>
+  <string name="app_name">MindScope</string>
+    
+    <string name="chat_service_label">MindScope: Chat Analysis</string>
+    <string name="screen_service_label">MindScope: Screen Controller</string>
+
+    <!-- Description for Chat Service -->
+    <string name="chat_service_description">
+        MindScope Chat Monitor analyzes your messages to detect harmful language and provides real-time safety alerts.
+    </string>
+
+    <!-- Description for Screen Service -->
+    <string name="screen_service_description">
+        MindScope Screen Controller monitors app usage time to help you stay within your daily limits and reduce screen addiction.
+    </string>
 </resources>

@@ -1,167 +1,88 @@
 {
-    "version": "2.0.0",
-    "presentation": {
-        // Group all five services under one name for organization
-        "group": "MindScope Dev Stack",
-        // Show the terminal panel when the tasks start
-        "reveal": "always",
-        // Open a new, clean terminal group for these tasks
-        "panel": "dedicated",
-        // Keep all terminals open until manually stopped
-        "close": false
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start MindScope Dev Stack",
+      "dependsOn": [
+        "ADB Reverse 8081",
+        "ADB Reverse 8000",
+        "ADB Reverse 3000",
+        "React Native (Expo)",
+        "Express Server",
+        "FastAPI Server",
+        "ADB Logcat"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
     },
-    "tasks": [
-        {
-            // Master Task: This runs all the dependent services below
-            "label": "Start All MindScope Services (5 Terminals)",
-            "dependsOn": [
-                "1c: ADB Reverse tcp:3000",
-                "2: React Native Server",
-                "3: Express Server",
-                "4: FastAPI Microservice",
-                "5: ADB Logcat Monitor"
-            ],
-            "group": {
-                "kind": "build",
-                "isDefault": true // Set as the default build task (Ctrl+Shift+B)
-            },
-            "problemMatcher": []
+    {
+      "label": "ADB Reverse 8081",
+      "type": "shell",
+      "command": "adb reverse tcp:8081 tcp:8081",
+      "options": {
+        "cwd": "C:\\Users\\Acer\\Desktop\\Major Project\\Mobile_app"
+      }
+    },
+    {
+      "label": "ADB Reverse 8000",
+      "type": "shell",
+      "command": "adb reverse tcp:8000 tcp:8000",
+      "options": {
+        "cwd": "C:\\Users\\Acer\\Desktop\\Major Project\\Mobile_app"
+      }
+    },
+    {
+      "label": "ADB Reverse 3000",
+      "type": "shell",
+      "command": "adb reverse tcp:3000 tcp:3000",
+      "options": {
+        "cwd": "C:\\Users\\Acer\\Desktop\\Major Project\\Mobile_app"
+      }
+    },
+    {
+      "label": "React Native (Expo)",
+      "type": "shell",
+      "command": "npm start",
+      "isBackground": true,
+      "options": {
+        "cwd": "C:\\Users\\Acer\\Desktop\\Major Project\\Mobile_app"
+      }
+    },
+    {
+      "label": "Express Server",
+      "type": "shell",
+      "command": "npm start",
+      "isBackground": true,
+      "options": {
+        "cwd": "C:\\Users\\Acer\\Desktop\\Major Project\\Server"
+      }
+    },
+    {
+      "label": "FastAPI Server",
+      "type": "shell",
+      "command": ".\\venv\\Scripts\\activate.bat && uvicorn main:app --reload --host 0.0.0.0 --port 8000",
+      "isBackground": true,
+      "options": {
+        "shell": {
+          "executable": "cmd.exe",
+          "args": [
+            "/C"
+          ]
         },
-        // --- 1a. ADB Port Reversing (Sequential Steps) ---
-        {
-            "label": "1a: ADB Reverse tcp:8081",
-            "type": "shell",
-            // Command runs the reverse then prints confirmation
-            "command": "adb reverse tcp:8081 tcp:8081",
-            "group": "MindScope Dev Stack",
-            "isBackground": false, // Runs and completes
-            "problemMatcher": [],
-            "options": {
-                "cwd": "C:\\Users\\hande\\Desktop\\MindScope\\Mobile_app"
-            },
-            "presentation": {
-                "group": "MindScope Dev Stack",
-                "groupName": "ADB Reversing",
-                "groupOrder": 1
-            }
-        },
-        // --- 1b. ADB Port Reversing (Sequential Steps) ---
-        {
-            "label": "1b: ADB Reverse tcp:8000",
-            "type": "shell",
-            "dependsOn": [
-                "1a: ADB Reverse tcp:8081"
-            ], // Runs only after 1a succeeds
-            // Command runs the reverse then prints confirmation
-            "command": "adb reverse tcp:8000 tcp:8000",
-            "group": "MindScope Dev Stack",
-            "isBackground": false, // Runs and completes
-            "problemMatcher": [],
-            "options": {
-                "cwd": "C:\\Users\\hande\\Desktop\\MindScope\\Mobile_app"
-            },
-            "presentation": {
-                "group": "MindScope Dev Stack",
-                "groupName": "ADB Reversing",
-                "groupOrder": 1
-            }
-        },
-        // --- 1c. ADB Port Reversing (Sequential Steps) ---
-        {
-            "label": "1c: ADB Reverse tcp:3000",
-            "type": "shell",
-            "dependsOn": [
-                "1b: ADB Reverse tcp:8000"
-            ], // Runs only after 1b succeeds
-            // Command runs the reverse then prints confirmation
-            "command": "adb reverse tcp:3000 tcp:3000",
-            "group": "MindScope Dev Stack",
-            "isBackground": false, // Runs and completes
-            "problemMatcher": [],
-            "options": {
-                "cwd": "C:\\Users\\hande\\Desktop\\MindScope\\Mobile_app"
-            },
-            "presentation": {
-                "group": "MindScope Dev Stack",
-                "groupName": "ADB Reversing",
-                "groupOrder": 1
-            }
-        },
-        // --- 2. React Native Server (Continuous) ---
-        {
-            "label": "2: React Native Server",
-            "type": "shell",
-            "command": "npm start",
-            "group": "MindScope Dev Stack",
-            "isBackground": true,
-            "problemMatcher": [],
-            "options": {
-                "cwd": "C:\\Users\\hande\\Desktop\\MindScope\\Mobile_app"
-            },
-            "presentation": {
-                "group": "MindScope Dev Stack",
-                "groupName": "React Native",
-                "groupOrder": 2
-            }
-        },
-        // --- 3. Express Server (Continuous) ---
-        {
-            "label": "3: Express Server",
-            "type": "shell",
-            "command": "npm start",
-            "group": "MindScope Dev Stack",
-            "isBackground": true,
-            "problemMatcher": [],
-            "options": {
-                "cwd": "C:\\Users\\hande\\Desktop\\MindScope\\Server"
-            },
-            "presentation": {
-                "group": "MindScope Dev Stack",
-                "groupName": "Express API",
-                "groupOrder": 3
-            }
-        },
-        // --- 4. FastAPI Microservice (Continuous with Venv Activation) ---
-        {
-            "label": "4: FastAPI Microservice",
-            "type": "shell",
-            // Command runs the activation script and then uvicorn in sequence
-            "command": ".\\venv\\Scripts\\activate.bat && uvicorn main:app --reload",
-            "group": "MindScope Dev Stack",
-            "isBackground": true,
-            "problemMatcher": [],
-            "options": {
-                // IMPORTANT: Force this task to use cmd.exe, which is required for .bat activation to work correctly.
-                "shell": {
-                    "executable": "cmd.exe",
-                    "args": [
-                        "/C"
-                    ]
-                },
-                "cwd": "C:\\Users\\hande\\Desktop\\MindScope\\AI_microservice"
-            },
-            "presentation": {
-                "group": "MindScope Dev Stack",
-                "groupName": "FastAPI AI",
-                "groupOrder": 4
-            }
-        },
-        // --- 5. ADB Logcat (Continuous) ---
-        {
-            "label": "5: ADB Logcat Monitor",
-            "type": "shell",
-            "command": "adb logcat | findstr \"ChatAccessibilityService\"",
-            "group": "MindScope Dev Stack",
-            "isBackground": true,
-            "problemMatcher": [],
-            "options": {
-                "cwd": "C:\\Users\\hande\\Desktop\\MindScope\\Mobile_app"
-            },
-            "presentation": {
-                "group": "MindScope Dev Stack",
-                "groupName": "ADB Logcat",
-                "groupOrder": 5
-            }
-        }
-    ]
+        "cwd": "C:\\Users\\Acer\\Desktop\\Major Project\\AI_microservice"
+      }
+    },
+    {
+      "label": "ADB Logcat",
+      "type": "shell",
+      "command": "adb logcat | ForEach-Object { if ($_ -like \"ChatAccessibilityService\") { $_ } }",
+      "isBackground": true,
+      "options": {
+        "cwd": "C:\\Users\\Acer\\Desktop\\Major Project\\Mobile_app"
+      }
+    }
+  ]
 }

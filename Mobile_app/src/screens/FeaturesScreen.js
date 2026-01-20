@@ -13,10 +13,11 @@ import {
   Linking,
   Platform,
   ScrollView,
+  AppState, 
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useContext, useCallback, useEffect } from "react";
+import { useContext, useCallback,useRef, useEffect } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { FA5Style } from "@expo/vector-icons/build/FontAwesome5";
 
@@ -125,6 +126,7 @@ const FeatureCard = ({
 const FeaturesScreen = () => {
   const insets = useSafeAreaInsets();
   const { user } = useContext(AuthContext);
+  const appState = useRef(AppState.currentState);
 
   // Main toggles
   const [chatAnalysisEnabled, setChatAnalysisEnabled] = useState(false);
@@ -145,6 +147,7 @@ const FeaturesScreen = () => {
     if (Platform.OS !== 'android' || !ChatAccessibility || !ChatAccessibility.isServiceEnabled) return;
     try {
       const isEnabled = await ChatAccessibility.isServiceEnabled();
+      console.log("Chat accessibility service status : ",isEnabled);
       setChatAnalysisEnabled(isEnabled);
     } catch (error) {
       console.error("Failed to check Chat status:", error);
@@ -254,14 +257,36 @@ const FeaturesScreen = () => {
     try {
       if (ScreenController && ScreenController.updateServiceSettings) {
         await ScreenController.updateServiceSettings(featureKey, enabled, time);
+        console.log("updateServiceSettings method is called !");
       }
     } catch (e) {
       console.error("Sync Error:", e);
     }
   };
 
+  const checkScreenControllerStatus = useCallback(async () => {
+    if (Platform.OS !== 'android' || !ScreenController || !ScreenController.isServiceEnabled) return;
+    
+    try {
+      const isEnabled = await ScreenController.isServiceEnabled();
+      console.log("Screen controller status : ", isEnabled);
+      setIsScreenControllerEnabled(isEnabled);
+      
+      // Optional: If enabled, sync current sub-feature states to ensure Java is up to date
+      if (isEnabled) {
+        Object.keys(screenUsageControllerSubFeature).forEach(featureKey => {
+          const feature = screenUsageControllerSubFeature[featureKey];
+          syncSettingsToNative(featureKey, feature.enabled, feature.time);
+        });
+      }
+    } catch (error) {
+      console.error("Failed to check ScreenController status:", error);
+    }
+  }, [screenUsageControllerSubFeature]);
+
   const handleScreenUsageControllerToggle = async (newValue) => {
     // 1. PERMISSION CHECK: Only run if the user is trying to turn the toggle ON
+
     if (newValue === true) {
       try {
         // Call the native method to check if the Accessibility Service is active
@@ -352,19 +377,63 @@ const FeaturesScreen = () => {
   }
 
   // --- INITIAL LOAD AND REFRESH ---
-  useEffect(() => {
-    const loadStatus = async () => {
-      setLoading(true);
-      await checkChatStatus();
-      await checkVoiceStatus();
+  // useEffect(() => {
+  //   const loadStatus = async () => {
+  //     setLoading(true);
+  //     await checkChatStatus();
+  //     await checkVoiceStatus();
+  //     await checkScreenControllerStatus();
+  //     setLoading(false);
+  //   };
+
+  //   loadStatus();
+
+  //   // const interval = setInterval(checkChatStatus, 2000);
+  //   // return () => clearInterval(interval);
+  // }, [checkChatStatus, checkVoiceStatus, checkScreenControllerStatus]);
+
+  const checkAllServicesStatus = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Check all services (Screen, Chat, Voice)
+      // The Promise.all makes them run in parallel
+      await Promise.all([
+        checkChatStatus(),
+        checkVoiceStatus(),
+        checkScreenControllerStatus()
+      ]);
+      console.log("All settings synced from Android System");
+    } catch (error) {
+      console.error("Failed to sync service statuses:", error);
+    } finally {
       setLoading(false);
+    }
+  }, [checkChatStatus, checkVoiceStatus, checkScreenControllerStatus]);
+
+  // 2. The AppState Listener inside useEffect
+  useEffect(() => {
+    // A. Initial check on mount
+    checkAllServicesStatus();
+
+    // B. Setup the Listener
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      // Condition: App was in background (Settings) and is now 'active' (User returned)
+      if (
+        appState.current.match(/inactive|background/) && 
+        nextAppState === 'active'
+      ) {
+        console.log("Returned from Settings. Re-checking permissions...");
+        checkAllServicesStatus();
+      }
+
+      // Update the ref to the current state
+      appState.current = nextAppState;
+    });
+    // C. Cleanup listener on unmount
+    return () => {
+      subscription.remove();
     };
-
-    loadStatus();
-
-    const interval = setInterval(checkChatStatus, 2000);
-    return () => clearInterval(interval);
-  }, [checkChatStatus, checkVoiceStatus]);
+  }, [checkAllServicesStatus]);
   
   if (loading) {
     return (
@@ -455,7 +524,7 @@ const FeaturesScreen = () => {
       </ScrollView>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {

@@ -65,8 +65,10 @@ export default function App() {
             console.log("Data sent successfully to FastAPI");
             console.log(
               "response from fastAPI : ",
-              JSON.stringify(response.data, null, 2)
+              // JSON.stringify(response.data, null, 2)
+              response.data
             );
+            console.log(response.data.analysis.feedback);
             
           } catch (error) {
             console.error("Error sending to FastAPI:", error);

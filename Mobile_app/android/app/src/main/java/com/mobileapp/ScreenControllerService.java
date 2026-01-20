@@ -21,9 +21,9 @@ import java.util.Map;
  * Service to monitor app usage and enforce time, session, and cooldown restrictions.
  */
 public class ScreenControllerService extends AccessibilityService {
-    private static final String TAG = "ScreenController";
+    private static final String TAG = "ScreenControllerService";
     private static final String PREFS_NAME = "ScreenPrefs"; // Matches Bridge Module
-    private static final String TARGET_PACKAGE = "com.instagram.android";
+    private static final String TARGET_PACKAGE = "com.google.android.youtube";
 
     // --- DYNAMIC SETTINGS (Updated from SharedPreferences) ---
     private long dailyLimitMs = 30 * 60 * 1000; 
@@ -55,7 +55,7 @@ public class ScreenControllerService extends AccessibilityService {
         
         // --- ADDITION: Initial load of settings ---
         refreshSettings();
-        Log.d(TAG, "Service Connected and Settings Loaded");
+        Log.d(TAG, "Screen Controller Service Connected and Settings Loaded");
     }
 
     /**
@@ -77,8 +77,6 @@ public class ScreenControllerService extends AccessibilityService {
         
         // Warning threshold is usually slightly less than session limit
         warningThresholdMs = Math.max(0, sessionLimitMs - (2 * 60 * 1000L));
-
-        Log.d(TAG, "Settings Refreshed: TimeLimitEnabled=" + isTimeLimitEnabled + ", Limit=" + (dailyLimitMs/60000) + "m");
     }
 
     @Override
@@ -86,6 +84,7 @@ public class ScreenControllerService extends AccessibilityService {
         // --- ADDITION: Refresh settings on app switch to ensure latest UI state is used ---
         if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             refreshSettings();
+            Log.d(TAG, "Window state has changed !");
             
             String packageName = event.getPackageName() != null ? event.getPackageName().toString() : "";
             handlePackageChange(packageName);
@@ -105,7 +104,7 @@ public class ScreenControllerService extends AccessibilityService {
 
         currentPackage = newPackage;
 
-        // Moving into Target (Instagram)
+        // Moving into Target (Youtube)
         if (currentPackage.equals(TARGET_PACKAGE)) {
             
             // --- ADDITION: Check Cooldown Feature ---
