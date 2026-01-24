@@ -15,6 +15,7 @@ import { analyzeVoiceRecording, uploadBatchRecordings } from '../services/VoiceR
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { saveInferenceResult } from '../services/VoiceRecordingService';
 import { fetchRecordingByName } from '../services/VoiceRecordingService';
+import ToxicityChart from '../components/ToxicityChart';
 
 const VoiceAnalysisScreen = () => {
   const insets = useSafeAreaInsets();
@@ -416,6 +417,8 @@ const VoiceAnalysisScreen = () => {
             <Text style={styles.loadingText}>Analyzing recording...</Text>
           </View>
         )}
+
+        <ToxicityChart title="Voice call toxicity" data = {null}/>
 
       </ScrollView>
     </View>
