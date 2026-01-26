@@ -321,6 +321,8 @@ const VoiceAnalysisScreen = () => {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <VoiceToxicityChart title="Voice call toxicity" data={voiceInferences} />
+        
         {/* Status Card */}
         <View style={styles.statusCard}>
           <Text style={styles.statusTitle}>Native Integration Status</Text>
@@ -451,7 +453,7 @@ const VoiceAnalysisScreen = () => {
           </View>
         )}
 
-        <VoiceToxicityChart title="Voice call toxicity" data={voiceInferences} />
+
 
       </ScrollView>
     </View>

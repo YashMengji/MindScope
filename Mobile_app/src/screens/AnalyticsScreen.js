@@ -13,7 +13,7 @@ import { AuthContext } from "../context/AuthContext";
 import { LineChart } from 'react-native-chart-kit';
 import { Dimensions } from 'react-native';
 import { getChat } from "../services/chatInferenceService";
-import VoiceToxicityChart from "../components/VoiceToxicityChart";
+import ToxicityChart from "../components/ToxicityChart";
 
 const AnalyticsScreen = () => {
   const insets = useSafeAreaInsets();
@@ -178,7 +178,7 @@ const AnalyticsScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         {/* Toxicity Trend Chart */}
-        <VoiceToxicityChart title="Chat Toxicity" data={null}/>
+        <ToxicityChart title="Chat Toxicity" data={null}/>
 
         {/* Statistics Overview */}
         <View style={styles.statsContainer}>
