@@ -18,7 +18,9 @@ const corsOptions = {
 };
 
 // global middlewares (this will work for every endpoint)
-app.use(express.json());
+// Change this line in your server.js
+app.use(express.json({ limit: '10mb' })); 
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(cors(corsOptions));
 
 // Connect DB

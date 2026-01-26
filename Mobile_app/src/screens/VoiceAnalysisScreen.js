@@ -16,12 +16,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { saveInferenceResult } from '../services/VoiceRecordingService';
 import { fetchRecordingByName } from '../services/VoiceRecordingService';
 import ToxicityChart from '../components/ToxicityChart';
+import {fetchVoiceInferencePerUser} from '../services/VoiceRecordingService';
 
 const VoiceAnalysisScreen = () => {
   const insets = useSafeAreaInsets();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isUploading, setIsUploading] = useState(false); // New state for upload
-  const [analysisResult, setAnalysisResult] = useState(null);
+  const [voiceInferences, setVoiceInferences] = useState(null);
   const [nativeAvailable, setNativeAvailable] = useState(false);
   const [monitoring, setMonitoring] = useState(false);
 
@@ -76,6 +77,11 @@ const VoiceAnalysisScreen = () => {
       }
     };
   }, [selectedDirectory]); // Re-run if directory changes
+
+  useEffect(() => {
+    
+  }, [voiceInferences]);
+ 
 
   const loadSavedDirectory = async () => {
     try {
@@ -175,14 +181,36 @@ const VoiceAnalysisScreen = () => {
   };
 
   const uploadToServer = async (results) => {
-    // Placeholder for any additional server-side logging if needed
-    results.forEach(async (result) => {
-        console.log(`File: ${result.fileName}, Status: ${result.status}`);
-        if(await fetchRecordingByName(result.fileName) == null && result.status === 'uploaded'){
-          await saveInferenceResult(result);
-        }
+    console.log("Starting uploadToServer with results:", results);
+    
+    // ✅ FIX 1: Use for...of loop to ensure code waits for each server check
+    for (const result of results) {
+      console.log(`Processing file: ${result.fileName}, Status: ${result.status}`);
+      
+      if (!result.fileName) {
+        console.error("Missing fileName in result", result);
+        continue;
+      } 
+      
+      // ✅ FIX 2: Declare the variable with 'const'
+      const trimmedFilename = result.fileName.split('.').slice(0, -1).join('.');
+      
+      // console.log(`Checking if ${trimmedFilename} exists on server...`);
+      const fileExist = await fetchRecordingByName(result.fileName);
+      
+      console.log(`File exists check result:`, fileExist);
+
+      if (fileExist.success !== true && result.status === 'uploaded') {
+        console.log("File not found on server, saving inference...");
+        
+        // Prepare the correct data structure for the service
+        console.log("Saving inference for result:", result);
+        await saveInferenceResult(result);
+        const {data} = await fetchVoiceInferencePerUser();
+        console.log("Fetched voice inferences after saving (VoiceAnalysisScreen.js):", data.data);
+        setVoiceInferences(data.data);
       }
-    )
+    }
   };
 
   // --- NEW: Sync Logic ---
@@ -418,7 +446,7 @@ const VoiceAnalysisScreen = () => {
           </View>
         )}
 
-        <ToxicityChart title="Voice call toxicity" data = {null}/>
+        <ToxicityChart title="Voice call toxicity" data={null} />
 
       </ScrollView>
     </View>
