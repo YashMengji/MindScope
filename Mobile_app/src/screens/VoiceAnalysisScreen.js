@@ -15,7 +15,7 @@ import { analyzeVoiceRecording, uploadBatchRecordings } from '../services/VoiceR
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { saveInferenceResult } from '../services/VoiceRecordingService';
 import { fetchRecordingByName } from '../services/VoiceRecordingService';
-import ToxicityChart from '../components/ToxicityChart';
+import VoiceToxicityChart from '../components/VoiceToxicityChart';
 import {fetchVoiceInferencePerUser} from '../services/VoiceRecordingService';
 
 const VoiceAnalysisScreen = () => {
@@ -79,8 +79,13 @@ const VoiceAnalysisScreen = () => {
   }, [selectedDirectory]); // Re-run if directory changes
 
   useEffect(() => {
-    
-  }, [voiceInferences]);
+    const fetchData = async () => {
+      const { data } = await fetchVoiceInferencePerUser();
+      setVoiceInferences(data.data);
+    };
+  
+    fetchData();
+  }, []);
  
 
   const loadSavedDirectory = async () => {
@@ -446,7 +451,7 @@ const VoiceAnalysisScreen = () => {
           </View>
         )}
 
-        <ToxicityChart title="Voice call toxicity" data={null} />
+        <VoiceToxicityChart title="Voice call toxicity" data={voiceInferences} />
 
       </ScrollView>
     </View>
