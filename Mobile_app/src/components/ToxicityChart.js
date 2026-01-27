@@ -2,9 +2,9 @@ import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from "react-nati
 import { LineChart } from "react-native-chart-kit"
 import { useState } from "react";
 
-export default function ToxicityChart({title, data}) {
+export default function ToxicityChart({ title, data }) {
     const screenWidth = Dimensions.get('window').width;
-    
+
     const [selectedPoint, setSelectedPoint] = useState({
         index: -1,
         value: 0,
@@ -13,7 +13,7 @@ export default function ToxicityChart({title, data}) {
         x: 0,
         y: 0
     });
-    
+
     const defaultToxicityData = {
         labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
         datasets: [{
@@ -93,12 +93,12 @@ export default function ToxicityChart({title, data}) {
                     : 'No conversation data available'
                 }
             </Text>
-            
+
             {/* Instruction text */}
             <Text style={styles.instructionText}>
                 Click on data points above to view feedback
             </Text>
-            
+
             <View style={styles.chartWrapper}>
                 {/* Selected point indicator - positioned absolutely over the chart */}
                 {selectedPoint.index >= 0 && (
@@ -112,7 +112,7 @@ export default function ToxicityChart({title, data}) {
                         ]}
                     />
                 )}
-                
+
                 <LineChart
                     data={defaultToxicityData}
                     width={screenWidth - 40}
@@ -145,7 +145,7 @@ export default function ToxicityChart({title, data}) {
                     <Text style={styles.feedbackText}>
                         {selectedPoint.feedback}
                     </Text>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={styles.deselectButton}
                         onPress={() => setSelectedPoint({
                             index: -1,

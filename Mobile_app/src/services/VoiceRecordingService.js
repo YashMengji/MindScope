@@ -105,7 +105,7 @@ export const fetchRecordingByName = async (fileName) => {
 
     const response = await api.post(
       "/voice/fileName",
-      fileName,
+      { fileName: fileName }, // ✅ FIX 3: Wrap data in an object
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -113,10 +113,41 @@ export const fetchRecordingByName = async (fileName) => {
       }
     );
 
-    console.log("Inference result saved successfully.");
-    return { success: true, data: response.data };
+    console.log("Check if inference result existed.");
+    if(response.data === true) {
+      console.log(`Recording with filename ${fileName} exists.`);
+      return { success: true, data: response.data };
+    }
+    else{
+      console.log(`Recording with filename ${fileName} NOT exists.`);
+      return { success: false, data: response.data };
+    }
   } catch (error) {
     console.error("Error searching inference result:", error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+export const fetchVoiceInferencePerUser = async () => {
+  try {
+    const token = await getToken();
+    // console.log("Token retrieved in service:", token);
+
+    const userId = "6903301b93ef8bdb5a368a28"; // Replace with dynamic user ID if needed
+    const selectedDate = new Date().toISOString().split('T')[0]; 
+    const response = await api.get(
+      `/voice/${userId}/${selectedDate}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    console.log(response.data);
+    console.log("Fetched all voice inferences per user successfully.");
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Error fetching all voice inferences:", error.message);
     return { success: false, error: error.message };
   }
 }

@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+// import { useSafeAreaInsets } from "react-native-safe-area-context"; // No longer needed here
 
 // Import the custom component
 import CustomTabBar from "./CustomTabBar";
@@ -21,26 +21,23 @@ import VoiceAnalysisScreen from "../screens/VoiceAnalysisScreen";
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Wrapper component for tab navigator with safe area handling
+// Wrapper component for tab navigator
 function MainAppTabs() {
-  const insets = useSafeAreaInsets();
-
+  // Removed the wrapping View with padding. 
+  // The TabBar is now floating, so screens take full height.
   return (
-    <View style={{ flex: 1, paddingBottom: insets.bottom }}>
-      <Tab.Navigator
-        tabBar={(props) => <CustomTabBar {...props} />}
-        screenOptions={{
-          headerShown: false,
-        }}
-      >
-        <Tab.Screen name="Home" component={HomeScreen} />
-        <Tab.Screen name="Features" component={FeaturesScreen} />
-        <Tab.Screen name="Chat Analytics" component={AnalyticsScreen} />
-        <Tab.Screen name="Voice Analytics" component={VoiceAnalysisScreen} />
-        {/* <Tab.Screen name="Screen Usage" component={ScreenUsageScreen} /> */}
-        <Tab.Screen name="Profile" component={ProfileScreen} />
-      </Tab.Navigator>
-    </View>
+    <Tab.Navigator
+      tabBar={(props) => <CustomTabBar {...props} />}
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Features" component={FeaturesScreen} />
+      <Tab.Screen name="Chat Analytics" component={AnalyticsScreen} />
+      <Tab.Screen name="Voice Analytics" component={VoiceAnalysisScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
+    </Tab.Navigator>
   );
 }
 
