@@ -5,10 +5,10 @@ export const saveChatInference = async (req, res) => {
   try {
     console.log("Request body received in controller:", req.body);
     const sessionId = req.body.session_id;
-    const startTimestamp = req.body.analysis[0].startTimestamp;
-    const endTimestamp = req.body.analysis[0].endTimestamp;
-    const feedback = req.body.analysis[0].feedback;
-    const toxicityScore = req.body.analysis[0].toxicity_inference.toxicity_score;
+    const startTimestamp = req.body.analysis.startTimestamp;
+    const endTimestamp = req.body.analysis.endTimestamp;
+    const feedback = req.body.analysis.feedback;
+    const toxicityScore = req.body.analysis.toxicityScore;
     const userId = new mongoose.Types.ObjectId("6903301b93ef8bdb5a368a28");
 
     const chat = new ChatInference({
@@ -30,7 +30,8 @@ export const saveChatInference = async (req, res) => {
 
 export const getChatByUserId = async (req, res) => {
   try {
-    const userId = req.params.userId;
+    // const userId = req.params.userId;
+    const userId = new mongoose.Types.ObjectId("6903301b93ef8bdb5a368a28");
     console.log("Is user id null (controller):", userId);
     console.log("User ID received in (controller):", userId);
     // Get the start and end of the current day

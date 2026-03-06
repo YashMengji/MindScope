@@ -1,87 +1,119 @@
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from "react-native"
 import { LineChart } from "react-native-chart-kit"
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { Circle, G } from 'react-native-svg';
 
 export default function ToxicityChart({ title, data }) {
+    console.log("Chat data (toxicity chart component) : ", data);
+
     const screenWidth = Dimensions.get('window').width;
 
-    const [selectedPoint, setSelectedPoint] = useState({
-        index: -1,
-        value: 0,
-        feedback: "",
-        day: "",
-        x: 0,
-        y: 0
-    });
+    const [selectedPoint, setSelectedPoint] = useState({});
+
+    // Constants for configuration
+    const HALO_RADIUS = 10; // Controls the size of the highlight ring (Diameter = 20)
 
     const defaultToxicityData = {
         labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
         datasets: [{
-            data: [0.2, 0.4, 0.3, 0.1, 0.5, 0.2, 0.3],
+            data: [0.9],
             color: (opacity = 1) => `rgba(255, 59, 48, ${opacity})`,
             strokeWidth: 2,
         }],
+        raw: [
+            {
+                feedback: []
+            }
+        ]
     };
 
-    // Feedback messages for each data point
-    const feedbackMessages = [
-        "You could have controlled your anger. Try taking a deep breath before responding.",
-        "Your response showed improvement in managing frustration.",
-        "Consider using more positive language to express your concerns.",
-        "Good job managing your tone! Keep up the constructive communication.",
-        "Some responses were harsh. Try framing feedback more gently.",
-        "You handled the difficult conversation well.",
-        "Be mindful of sarcasm - it can sometimes escalate tensions."
-    ];
+    const chartConfigData = useMemo(() => {
+        if (!data || data.length === 0) {
+          return {
+            labels: ["No Data"],
+            datasets: [{ data: [0], color: () => 'transparent' }],
+          };
+        }
+    
+        // Sort by time (oldest to newest)
+        const sortedData = [...data].sort((a, b) => new Date(a.endTimestamp) - new Date(b.endTimestamp));
+    
+        return {
+          labels: sortedData.map(item => {
+            const date = new Date(item.endTimestamp);
+            return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+          }),
+          datasets: [
+            {
+              data: sortedData.map(item => item.toxicityScore),
+              color: (opacity = 1) => `rgba(255, 59, 48, ${opacity})`,
+              strokeWidth: 2,
+            },
+          ],
+          raw: sortedData,
+        };
+      }, [data]);
 
-    const dayLabels = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    const totalRecords = defaultToxicityData.datasets[0].data.length;
+    // Feedback messages for each data point
+    const totalRecords = chartConfigData.datasets[0].data.length;
 
     const chartConfig = {
         backgroundColor: '#ffffff',
         backgroundGradientFrom: '#ffffff',
         backgroundGradientTo: '#ffffff',
         decimalPlaces: 2,
-        color: (opacity = 1) => `rgba(255, 59, 48, ${opacity})`,
-        labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-        style: {
-            borderRadius: 0,
-        },
+        color: (opacity = 1) => `rgba(10, 46, 91, ${opacity})`,
+        labelColor: (opacity = 1) => `rgba(102, 102, 102, ${opacity})`,
+        style: { borderRadius: 16 },
         propsForDots: {
-            r: '6',
-            strokeWidth: '3',
-            stroke: '#ff3b30',
-        },
-        propsForLabels: {
-            fontSize: 10,
+        r: '5',
+        strokeWidth: '2',
+        stroke: '#ff3b30',
         },
         propsForBackgroundLines: {
-            strokeDasharray: "", // solid lines
+        strokeDasharray: '5, 5',
+        stroke: 'rgba(0, 0, 0, 0.05)',
         },
     };
 
-    const handleDataPointClick = (data) => {
-        // If clicking the same point, deselect it
-        if (selectedPoint.index === data.index) {
-            setSelectedPoint({
-                index: -1,
-                value: 0,
-                feedback: "",
-                day: "",
-                x: 0,
-                y: 0
-            });
-            return;
-        }
+    // const handleDataPointClick = (data) => {
+        
+    //     // If clicking the same point, deselect it
+    //     if (selectedPoint.index === data.index) {
+    //         setSelectedPoint({
+    //             index: -1,
+    //             value: 0,
+    //             feedback: "",
+    //             day: "",
+    //             x: 0,
+    //             y: 0
+    //         });
+    //         return;
+    //     }
 
-        setSelectedPoint({
-            index: data.index,
-            value: data.value,
-            feedback: feedbackMessages[data.index] || "No feedback available for this point.",
-            day: dayLabels[data.index] || `Day ${data.index + 1}`,
-            x: data.x, // Use the x coordinate from the click event
-            y: data.y  // Use the y coordinate from the click event
-        });
+    //     setSelectedPoint({
+    //         index: data.index,
+    //         value: data.value,
+    //         feedback: feedbackMessages[data.index] || "No feedback available for this point.",
+    //         day: dayLabels[data.index] || `Day ${data.index + 1}`,
+    //         x: data.x, // Use the x coordinate from the click event
+    //         y: data.y  // Use the y coordinate from the click event
+    //     });
+    // };
+
+    const handlePointClick = (point) => {
+        const selectedRecord = chartConfigData.raw[point.index];
+        
+        // Toggle selection logic
+        if (selectedPoint && selectedPoint._id === selectedRecord._id) {
+            setSelectedPoint(null);
+        } else {
+            setSelectedPoint({
+                ...selectedRecord,
+                index: point.index, // Save index to match in renderDotContent
+                displayValue: point.value,
+            });
+        }
     };
 
     return (
@@ -101,7 +133,7 @@ export default function ToxicityChart({ title, data }) {
 
             <View style={styles.chartWrapper}>
                 {/* Selected point indicator - positioned absolutely over the chart */}
-                {selectedPoint.index >= 0 && (
+                {/* {selectedPoint.index >= 0 && (
                     <View
                         style={[
                             styles.selectedPoint,
@@ -111,10 +143,10 @@ export default function ToxicityChart({ title, data }) {
                             }
                         ]}
                     />
-                )}
+                )} */}
 
                 <LineChart
-                    data={defaultToxicityData}
+                    data={chartConfigData}
                     width={screenWidth - 40}
                     height={220}
                     chartConfig={chartConfig}
@@ -127,7 +159,25 @@ export default function ToxicityChart({ title, data }) {
                     yAxisLabel=""
                     yAxisSuffix=""
                     segments={5}
-                    onDataPointClick={handleDataPointClick}
+                    onDataPointClick={(point) => handlePointClick(point)}
+                    renderDotContent={({ x, y, index }) => {
+                                // Only render the halo for the selected point
+                                if (selectedPoint && selectedPoint.index === index) {
+                                  return (
+                                    <G key={`halo-${index}`}>
+                                      <Circle
+                                        cx={x} // Exact center X provided by chart
+                                        cy={y} // Exact center Y provided by chart
+                                        r={HALO_RADIUS}
+                                        fill="rgba(10, 46, 91, 0.2)" // Transparent fill
+                                        stroke="#0A2E5B"
+                                        strokeWidth={2}
+                                      />
+                                    </G>
+                                  );
+                                }
+                                return null;
+                              }}
                 />
             </View>
 
@@ -136,14 +186,19 @@ export default function ToxicityChart({ title, data }) {
                 <View style={styles.feedbackContainer}>
                     <View style={styles.feedbackHeader}>
                         <Text style={styles.feedbackTitle}>
-                            Feedback for {selectedPoint.day}
+                            Feedback for {new Date(selectedPoint.endTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </Text>
                         <Text style={styles.feedbackScore}>
-                            Score: {(selectedPoint.value * 100).toFixed(0)}%
+                            Score: {(selectedPoint.toxicityScore * 100).toFixed(0)}%
                         </Text>
                     </View>
                     <Text style={styles.feedbackText}>
-                        {selectedPoint.feedback}
+                        {selectedPoint.feedback && selectedPoint.feedback.map((item, index) => (
+                            <View key={index} style={styles.bulletRow}>
+                                <View style={styles.bullet} />
+                                <Text style={styles.feedbackText}>{item}</Text>
+                            </View>
+                        ))}
                     </Text>
                     <TouchableOpacity
                         style={styles.deselectButton}
@@ -159,6 +214,8 @@ export default function ToxicityChart({ title, data }) {
                         <Text style={styles.deselectButtonText}>Deselect Point</Text>
                     </TouchableOpacity>
                 </View>
+
+                
             ) : (
                 // Placeholder when no point is selected
                 <View style={styles.placeholderContainer}>
@@ -257,11 +314,24 @@ const styles = StyleSheet.create({
         paddingVertical: 4,
         borderRadius: 12,
     },
+    bulletRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginBottom: 10,
+    },
+    bullet: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: '#5E72E4',
+        marginTop: 7,
+        marginRight: 12,
+    },
     feedbackText: {
+        flex: 1,
         fontSize: 14,
-        color: "#333",
+        color: '#525F7F',
         lineHeight: 20,
-        marginBottom: 12,
     },
     deselectButton: {
         backgroundColor: "#0A2E5B",

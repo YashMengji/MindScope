@@ -1,201 +1,274 @@
 package com.mobileapp;
 
 import android.accessibilityservice.AccessibilityService;
-import android.accessibilityservice.AccessibilityServiceInfo;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.view.Gravity;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
+import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Service to monitor app usage and enforce time, session, and cooldown restrictions.
- */
 public class ScreenControllerService extends AccessibilityService {
     private static final String TAG = "ScreenControllerService";
-    private static final String PREFS_NAME = "ScreenPrefs"; // Matches Bridge Module
+    private static final String PREFS_NAME = "ScreenPrefs";
     private static final String TARGET_PACKAGE = "com.google.android.youtube";
 
-    // --- DYNAMIC SETTINGS (Updated from SharedPreferences) ---
-    private long dailyLimitMs = 30 * 60 * 1000; 
+    private long dailyLimitMs = 30 * 60 * 1000;
     private long sessionLimitMs = 10 * 60 * 1000;
     private long cooldownDurationMs = 15 * 60 * 1000;
-    private long warningThresholdMs = 8 * 60 * 1000;
 
-    // --- FEATURE FLAGS ---
     private boolean isTimeLimitEnabled = false;
     private boolean isSessionLimitEnabled = false;
     private boolean isCooldownEnabled = false;
-    private boolean isWarningEnabled = false;
 
-    // --- State Tracking ---
-    private String currentPackage = "";
-    private long sessionStartTime = 0;
-    private long totalDailyUsage = 0; // In a production app, persist this daily
-    private long cooldownStartTime = 0;
+    private final Map<String, Long> dailyUsage = new HashMap<>();
+    private final Map<String, Long> sessionStartTime = new HashMap<>();
+    private final Map<String, Long> lastUsedTime = new HashMap<>();
     
+    private String currentPackage = "";
+    private long startTime = 0;
+    private long lastClosedTimestamp = 0;
+    private long cooldownActiveUntil = 0; // Tracks when cooldown expires
+
+    private boolean dailyWarningShown = false;
+    private boolean sessionWarningShown = false;
+
     private WindowManager windowManager;
     private View overlayView;
+    private View warningView;
     private boolean isOverlayShowing = false;
+    private boolean isWarningShowing = false;
     private final Handler handler = new Handler(Looper.getMainLooper());
+
+    private final Runnable usageTicker = new Runnable() {
+        @Override
+        public void run() {
+            if (currentPackage.equals(TARGET_PACKAGE)) {
+                updateTimers();
+                checkAllLimits();
+                handler.postDelayed(this, 1000);
+            }
+        }
+    };
 
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
-        
-        // --- ADDITION: Initial load of settings ---
         refreshSettings();
-        Log.d(TAG, "Screen Controller Service Connected and Settings Loaded");
+        Log.d(TAG, "ScreenControllerService Connected.");
     }
 
-    /**
-     * READS Shared Preferences saved by ScreenControllerModule.java
-     */
     private void refreshSettings() {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        
-        // 1. Update Enabled/Disabled Flags
-        isTimeLimitEnabled = prefs.getBoolean("timeBased_enabled", false);
-        isSessionLimitEnabled = prefs.getBoolean("sessionBased_enabled", false);
+        isTimeLimitEnabled = prefs.getBoolean("dailyLimit_enabled", false);
+        dailyLimitMs = (long) prefs.getInt("dailyLimit_time", 30) * 60 * 1000;
+        isSessionLimitEnabled = prefs.getBoolean("sessionLimit_enabled", false);
+        sessionLimitMs = (long) prefs.getInt("sessionLimit_time", 10) * 60 * 1000;
         isCooldownEnabled = prefs.getBoolean("cooldown_enabled", false);
-        isWarningEnabled = prefs.getBoolean("warningOverlay_enabled", false);
-
-        // 2. Update Time Values (Converting mins from Prefs to Milliseconds)
-        dailyLimitMs = prefs.getInt("timeBased_time", 30) * 60 * 1000L;
-        sessionLimitMs = prefs.getInt("sessionBased_time", 10) * 60 * 1000L;
-        cooldownDurationMs = prefs.getInt("cooldown_time", 15) * 60 * 1000L;
-        
-        // Warning threshold is usually slightly less than session limit
-        warningThresholdMs = Math.max(0, sessionLimitMs - (2 * 60 * 1000L));
+        cooldownDurationMs = (long) prefs.getInt("cooldown_time", 15) * 60 * 1000;
     }
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        // --- ADDITION: Refresh settings on app switch to ensure latest UI state is used ---
         if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             refreshSettings();
-            Log.d(TAG, "Window state has changed !");
-            
-            String packageName = event.getPackageName() != null ? event.getPackageName().toString() : "";
-            handlePackageChange(packageName);
-        }
-    }
+            CharSequence pkg = event.getPackageName();
+            if (pkg == null) return;
 
-    private void handlePackageChange(String newPackage) {
-        long now = System.currentTimeMillis();
+            String newPackage = pkg.toString();
 
-        // App Switch Logic: Moving away from Target
-        if (currentPackage.equals(TARGET_PACKAGE) && !newPackage.equals(TARGET_PACKAGE)) {
-            long sessionDuration = now - sessionStartTime;
-            totalDailyUsage += sessionDuration;
-            handler.removeCallbacksAndMessages(null);
-            removeOverlay();
-        }
-
-        currentPackage = newPackage;
-
-        // Moving into Target (Youtube)
-        if (currentPackage.equals(TARGET_PACKAGE)) {
-            
-            // --- ADDITION: Check Cooldown Feature ---
-            if (isCooldownEnabled && now < cooldownStartTime + cooldownDurationMs) {
-                showBlockingOverlay("Cooldown active. Please wait.");
-                handler.postDelayed(() -> performGlobalAction(GLOBAL_ACTION_BACK), 2000);
+            // Prevent self-triggering exit logic
+            if ((isOverlayShowing || isWarningShowing) && newPackage.equals(getPackageName())) {
                 return;
             }
 
-            // --- ADDITION: Check Daily Time Limit Feature ---
-            if (isTimeLimitEnabled && totalDailyUsage >= dailyLimitMs) {
-                showBlockingOverlay("Daily limit reached for Instagram.");
-                handler.postDelayed(() -> performGlobalAction(GLOBAL_ACTION_BACK), 2000);
-                return;
+            if (!newPackage.equals(TARGET_PACKAGE) && currentPackage.equals(TARGET_PACKAGE)) {
+                updateTimers();
+                lastUsedTime.put(TARGET_PACKAGE, System.currentTimeMillis());
+                handler.removeCallbacks(usageTicker);
+                removeOverlay();
+                removeWarning();
             }
 
-            sessionStartTime = now;
-            startSessionMonitor();
-        }
-    }
+            if (newPackage.equals(TARGET_PACKAGE)) {
+                if (System.currentTimeMillis() - lastClosedTimestamp < 2000) return; 
 
-    private void startSessionMonitor() {
-        handler.removeCallbacksAndMessages(null);
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                if (currentPackage.equals(TARGET_PACKAGE)) {
-                    long now = System.currentTimeMillis();
-                    long currentSessionDuration = now - sessionStartTime;
-
-                    // --- ADDITION: Session Warning Feature ---
-                    if (isWarningEnabled && currentSessionDuration >= warningThresholdMs && currentSessionDuration < sessionLimitMs) {
-                        showWarning("Your session is almost over!");
-                    }
-
-                    // --- ADDITION: Session Limit Feature ---
-                    if (isSessionLimitEnabled && currentSessionDuration >= sessionLimitMs) {
-                        cooldownStartTime = System.currentTimeMillis();
-                        showBlockingOverlay("Session limit reached.");
-                        performGlobalAction(GLOBAL_ACTION_BACK);
-                    } else {
-                        handler.postDelayed(this, 10000); // Check every 10 seconds
-                    }
+                // 1. Check if Cooldown is currently active
+                if (isCooldownEnabled && System.currentTimeMillis() < cooldownActiveUntil) {
+                    showBlocker("Cooldown period has not yet expired!");
+                    return;
                 }
+
+                if (!newPackage.equals(currentPackage)) {
+                    startTime = System.currentTimeMillis();
+                    long lastExit = lastUsedTime.getOrDefault(TARGET_PACKAGE, 0L);
+                    if (startTime - lastExit > cooldownDurationMs) {
+                        sessionStartTime.put(TARGET_PACKAGE, startTime);
+                        sessionWarningShown = false; // Reset session warning for new session
+                    }
+                    handler.post(usageTicker);
+                }
+                checkAllLimits(); 
             }
-        }, 10000);
+            currentPackage = newPackage;
+        }
     }
 
-    private void showBlockingOverlay(String message) {
+    private void updateTimers() {
+        if (startTime == 0 || !currentPackage.equals(TARGET_PACKAGE)) return;
+        long now = System.currentTimeMillis();
+        long elapsed = now - startTime;
+        dailyUsage.put(TARGET_PACKAGE, dailyUsage.getOrDefault(TARGET_PACKAGE, 0L) + elapsed);
+        startTime = now;
+    }
+
+    private void checkAllLimits() {
+        if (!currentPackage.equals(TARGET_PACKAGE)) return;
+        long now = System.currentTimeMillis();
+        
+        // --- Daily Limit Logic ---
+        if (isTimeLimitEnabled) {
+            long totalDaily = dailyUsage.getOrDefault(TARGET_PACKAGE, 0L);
+            if (totalDaily >= dailyLimitMs) {
+                showBlocker("Daily limit reached for Youtube");
+                return;
+            } else if (!dailyWarningShown && totalDaily >= (dailyLimitMs * 0.75)) {
+                dailyWarningShown = true;
+                showWarning("You have used 75% of your daily limit.");
+            }
+        }
+
+        // --- Session Limit Logic ---
+        if (isSessionLimitEnabled) {
+            long sessionStart = sessionStartTime.getOrDefault(TARGET_PACKAGE, now);
+            long sessionElapsed = now - sessionStart;
+            if (sessionElapsed >= sessionLimitMs) {
+                if (isCooldownEnabled) {
+                    cooldownActiveUntil = System.currentTimeMillis() + cooldownDurationMs;
+                }
+                showBlocker("Session limit reached! Cooldown started.");
+                return;
+            } else if (!sessionWarningShown && sessionElapsed >= (sessionLimitMs * 0.75)) {
+                sessionWarningShown = true;
+                showWarning("You have used 75% of your session limit.");
+            }
+        }
+    }
+
+    private void showBlocker(String message) {
         if (isOverlayShowing) return;
+        removeWarning(); // Clear warning if blocking starts
 
         handler.post(() -> {
-            WindowManager.LayoutParams params = new WindowManager.LayoutParams(
-                    WindowManager.LayoutParams.MATCH_PARENT,
-                    WindowManager.LayoutParams.MATCH_PARENT,
-                    WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-                    PixelFormat.TRANSLUCENT);
-            params.gravity = Gravity.CENTER;
+            WindowManager.LayoutParams params = createLayoutParams();
+            LinearLayout layout = createBaseLayout("#FB000000");
 
-            overlayView = LayoutInflater.from(this).inflate(android.R.layout.simple_list_item_1, null);
-            overlayView.setBackgroundColor(0xEE000000); // Darker for blocking
-            
-            TextView text = overlayView.findViewById(android.R.id.text1);
-            text.setText(message);
-            text.setTextColor(0xFFFFFFFF);
-            text.setGravity(Gravity.CENTER);
-            text.setTextSize(20);
+            TextView text = createTextView(message);
+            layout.addView(text);
+
+            Button closeBtn = createButton("Close App", "#E53935");
+            closeBtn.setOnClickListener(v -> {
+                lastClosedTimestamp = System.currentTimeMillis(); 
+                performGlobalAction(GLOBAL_ACTION_HOME);
+                removeOverlay();
+            });
+            layout.addView(closeBtn);
 
             try {
-                windowManager.addView(overlayView, params);
+                windowManager.addView(layout, params);
+                overlayView = layout;
                 isOverlayShowing = true;
-            } catch (Exception e) {
-                Log.e(TAG, "Overlay Error: " + e.getMessage());
-            }
+            } catch (Exception e) { Log.e(TAG, "Blocker Error: " + e.getMessage()); }
         });
     }
 
     private void showWarning(String message) {
-        // Implementation for a temporary toast or small overlay
-        Log.w(TAG, "WARNING: " + message);
+        if (isWarningShowing || isOverlayShowing) return;
+
+        handler.post(() -> {
+            WindowManager.LayoutParams params = createLayoutParams();
+            LinearLayout layout = createBaseLayout("#CC000000"); // Slightly more transparent
+
+            TextView text = createTextView("WARNING\n" + message);
+            layout.addView(text);
+
+            Button okBtn = createButton("OK", "#4CAF50");
+            okBtn.setOnClickListener(v -> removeWarning());
+            layout.addView(okBtn);
+
+            try {
+                windowManager.addView(layout, params);
+                warningView = layout;
+                isWarningShowing = true;
+            } catch (Exception e) { Log.e(TAG, "Warning Error: " + e.getMessage()); }
+        });
+    }
+
+    private WindowManager.LayoutParams createLayoutParams() {
+        return new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | 
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN |
+                WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                PixelFormat.TRANSLUCENT);
+    }
+
+    private LinearLayout createBaseLayout(String bgColor) {
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setGravity(Gravity.CENTER);
+        layout.setBackgroundColor(Color.parseColor(bgColor));
+        return layout;
+    }
+
+    private TextView createTextView(String textStr) {
+        TextView text = new TextView(this);
+        text.setText(textStr);
+        text.setTextColor(Color.WHITE);
+        text.setTextSize(22);
+        text.setGravity(Gravity.CENTER);
+        text.setPadding(60, 20, 60, 40);
+        return text;
+    }
+
+    private Button createButton(String text, String color) {
+        Button btn = new Button(this);
+        btn.setText(text);
+        btn.setBackgroundColor(Color.parseColor(color));
+        btn.setTextColor(Color.WHITE);
+        return btn;
     }
 
     private void removeOverlay() {
         if (isOverlayShowing && overlayView != null) {
             try {
                 windowManager.removeView(overlayView);
-            } catch (Exception e) {
-                Log.e(TAG, "Error removing overlay: " + e.getMessage());
-            }
-            isOverlayShowing = false;
+                isOverlayShowing = false;
+                overlayView = null;
+            } catch (Exception e) { Log.e(TAG, "Remove Error: " + e.getMessage()); }
+        }
+    }
+
+    private void removeWarning() {
+        if (isWarningShowing && warningView != null) {
+            try {
+                windowManager.removeView(warningView);
+                isWarningShowing = false;
+                warningView = null;
+            } catch (Exception e) { Log.e(TAG, "Remove Warning Error: " + e.getMessage()); }
         }
     }
 

@@ -25,7 +25,7 @@ import { FA5Style } from "@expo/vector-icons/build/FontAwesome5";
 const { ChatAccessibility, CallAnalysis, ScreenController } = NativeModules;
 
 // Time options in minutes
-const TIME_OPTIONS = [10, 15, 20, 30, 45, 60, 90, 120, 180];
+const TIME_OPTIONS = [1, 10, 15, 20, 30, 45, 60, 90, 120, 180];
 
 // Custom Time Selector Component
 const TimeSelector = ({ value, onChange }) => {
@@ -136,10 +136,9 @@ const FeaturesScreen = () => {
 
   // Screen usage controller sub-features
   const [screenUsageControllerSubFeature, setScreenUsageControllerSubFeature] = useState({
-    timeBased: { enabled: false, time: 30 },
-    sessionBased: { enabled: false, time: 10 },
-    cooldown: { enabled: false, time: 15 },
-    warningOverlay: { enabled: false, time: 20 },
+    dailyLimit: { enabled: false, time: 30 },
+    sessionLimit: { enabled: false, time: 10 },
+    cooldown: { enabled: false, time: 15 }
   });
 
   // --- 1. CHAT ACCESSIBILITY LOGIC ---
@@ -376,22 +375,6 @@ const FeaturesScreen = () => {
     syncSettingsToNative(feature, enabled, newTime);
   }
 
-  // --- INITIAL LOAD AND REFRESH ---
-  // useEffect(() => {
-  //   const loadStatus = async () => {
-  //     setLoading(true);
-  //     await checkChatStatus();
-  //     await checkVoiceStatus();
-  //     await checkScreenControllerStatus();
-  //     setLoading(false);
-  //   };
-
-  //   loadStatus();
-
-  //   // const interval = setInterval(checkChatStatus, 2000);
-  //   // return () => clearInterval(interval);
-  // }, [checkChatStatus, checkVoiceStatus, checkScreenControllerStatus]);
-
   const checkAllServicesStatus = useCallback(async () => {
     setLoading(true);
     try {
@@ -472,13 +455,13 @@ const FeaturesScreen = () => {
         />
 
         {/* Voice Call Analysis */}
-        <FeatureCard
+        {/* <FeatureCard
           iconName="mic-outline"
           title="Voice call analysis"
           value={isVoiceCallPermissionEnabled}
           onValueChange={handleVoiceToggle}
           expanded={isVoiceCallPermissionEnabled}
-        />
+        /> */}
 
         {/* Screen Usage Controller */}
         <FeatureCard
@@ -489,37 +472,37 @@ const FeaturesScreen = () => {
           expanded={isScreenControllerEnabled}
         >
           <SubFeatureCard
-              title="Time Based"
-              value={screenUsageControllerSubFeature.timeBased.enabled}
-              onValueChange={(val) => updateScreenUsageControllerFeature('timeBased', val)}
-              timeValue={screenUsageControllerSubFeature.timeBased.time}
-              onTimeChange={(time) => updateScreenUsageControllerFeature('timeBased', true, time)}
+              title="Daily limit"
+              value={screenUsageControllerSubFeature.dailyLimit.enabled}
+              onValueChange={(val) => updateScreenUsageControllerFeature('dailyLimit', val)}
+              timeValue={screenUsageControllerSubFeature.dailyLimit.time}
+              onTimeChange={(time) => updateScreenUsageControllerFeature('dailyLimit', true, time)}
               showTime={true}
             />
             <SubFeatureCard
-              title="Session based"
-              value={screenUsageControllerSubFeature.sessionBased.enabled}
-              onValueChange={(val) => updateScreenUsageControllerFeature('sessionBased', val)}
-              timeValue={screenUsageControllerSubFeature.sessionBased.time}
-              onTimeChange={(time) => updateScreenUsageControllerFeature('sessionBased', true, time)}
+              title="Session limit"
+              value={screenUsageControllerSubFeature.sessionLimit.enabled}
+              onValueChange={(val) => updateScreenUsageControllerFeature('sessionLimit', val)}
+              timeValue={screenUsageControllerSubFeature.sessionLimit.time}
+              onTimeChange={(time) => updateScreenUsageControllerFeature('sessionLimit', true, time)}
               showTime={true}
             />
             <SubFeatureCard
-              title="Cooldown"
+              title="Cooldown period"
               value={screenUsageControllerSubFeature.cooldown.enabled}
               onValueChange={(val) => updateScreenUsageControllerFeature('cooldown', val)}
               timeValue={screenUsageControllerSubFeature.cooldown.time}
               onTimeChange={(time) => updateScreenUsageControllerFeature('cooldown', true, time)}
               showTime={true}
             />
-            <SubFeatureCard
+            {/* <SubFeatureCard
               title="Warning overlay"
               value={screenUsageControllerSubFeature.warningOverlay.enabled}
               onValueChange={(val) => updateScreenUsageControllerFeature('warningOverlay', val)}
               timeValue={screenUsageControllerSubFeature.warningOverlay.time}
               onTimeChange={(time) => updateScreenUsageControllerFeature('warningOverlay', true, time)}
               showTime={true}
-            />
+            /> */}
           </FeatureCard>
       </ScrollView>
     </View>

@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const chatInferenceSchema = new mongoose.Schema({
   sessionId: { type: String, required: true, unique: true },
-  feedback: { type: String, required: true },
+  feedback: { type: [String], required: true },
   toxicityScore: { type: Number, required: true },
   startTimestamp: { type: Number, required: true },
   endTimestamp: { type: Number, required: true },

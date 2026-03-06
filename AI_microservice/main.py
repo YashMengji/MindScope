@@ -99,17 +99,17 @@ def load_resources():
         logger.error(e)
 
     # 2. LOAD LOCAL MODELS
-    try:
-        logger.info("Loading DeHateBERT model...")
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
-        model = AutoModelForSequenceClassification.from_pretrained(MODEL_ID)
-        model.to(DEVICE)
-        model.eval()
+    # try:
+    #     logger.info("Loading DeHateBERT model...")
+    #     tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
+    #     model = AutoModelForSequenceClassification.from_pretrained(MODEL_ID)
+    #     model.to(DEVICE)
+    #     model.eval()
 
-        logger.info("Loading Emotion Classifier...")
-        emotion_classifier = pipeline("text-classification", model="SamLowe/roberta-base-go_emotions", top_k=3)
-    except Exception as e:
-        logger.error(f"Error loading local models: {e}")
+    #     logger.info("Loading Emotion Classifier...")
+    #     emotion_classifier = pipeline("text-classification", model="SamLowe/roberta-base-go_emotions", top_k=3)
+    # except Exception as e:
+    #     logger.error(f"Error loading local models: {e}")
 
 # --------------------------------------------------------------------------
 # PYDANTIC SCHEMAS
@@ -222,47 +222,146 @@ async def analyze_audio(file: UploadFile = File(...)):
                 pass
 
 # (Existing endpoints for text chat below...)
-@app.post("/analyze-emotion")
-async def analyze_emotion(data: ChatText):
-    if not emotion_classifier:
-        raise HTTPException(status_code=503, detail="Emotion model not loaded")
-    results = emotion_classifier(data.chatText)
-    return {"text": data.chatText, "emotions": results}
 
-def predict_toxicity_local(message: str):
-    if not tokenizer or not model: return {"toxicity_score": 0.0}
-    inputs = tokenizer(message, return_tensors="pt", truncation=True, max_length=512, padding=True).to(DEVICE)
-    with torch.no_grad():
-        outputs = model(**inputs)
-        probabilities = torch.softmax(outputs.logits, dim=-1).squeeze().cpu().numpy()
-    score = float(probabilities[1])
-    return {"is_toxic": score >= TOXICITY_THRESHOLD, "toxicity_score": score}
+def analyze_toxicity(messages: List[str]):
+    """
+    Simple function to analyze chat messages for toxicity
+    Returns: {'toxicity_score': float, 'feedback': [str, str]}
+    """
+    # Create simple prompt
+    prompt = f"""
+     Analyze the following conversation for toxicity levels. 
+    Provide your analysis in the exact JSON structure specified below.
+    
+    CONVERSATION MESSAGES:
+    {messages}
+    
+    INSTRUCTIONS:
+    1. First, carefully read and understand all messages in the conversation
+    2. Assign a toxicity score from 0.0 to 1.0 (it can be also between these two end values)
+    3. Provide EXACTLY TWO lines of constructive, non-judgmental feedback:
+       - Line 1: Specific observation about communication patterns
+       - Line 2: Constructive suggestion for improvement
+    4. Keep feedback supportive and focused on communication skills
+    
+    IMPORTANT RULES:
+    - Provide ONLY the JSON output, no additional text
+    - Feedback must be constructive, not accusatory. Also each line must be only of 10 words
+    - Consider context and intent, not just individual words
+    - Be culturally sensitive in your analysis
+    
+    REQUIRED JSON FORMAT (example):
+    {{
+        "toxicity_score": 0.5,
+        "feedback": [
+            "First line of constructive feedback here",
+            "Second line of constructive feedback here"
+        ]
+    }}
+    
+    Now provide your analysis:
+    """
+    
+    try:
+        # Call Gemini
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        response = model.generate_content(prompt)
+        
+        # Extract JSON from response
+        response_text = response.text.strip()
+        
+        # Clean up if there are markdown code blocks
+        if "```json" in response_text:
+            response_text = response_text.split("```json")[1].split("```")[0].strip()
+        elif "```" in response_text:
+            response_text = response_text.split("```")[1].strip()
+        
+        # Parse JSON
+        result = json.loads(response_text)
+        
+        # Ensure it has the right structure
+        if "toxicity_score" not in result:
+            result["toxicity_score"] = 0.0
+        
+        if "feedback" not in result or not isinstance(result["feedback"], list):
+            result["feedback"] = ["No feedback available.", "Try again."]
+        elif len(result["feedback"]) < 2:
+            # Ensure exactly 2 feedback lines
+            result["feedback"] = result["feedback"] + ["Consider your tone."]
+            if len(result["feedback"]) < 2:
+                result["feedback"].append("Be mindful of language.")
+        
+        return result
+        
+    except Exception as e:
+        # Fallback in case of error
+        return {
+            "toxicity_score": 0.0,
+            "feedback": [
+                "Unable to analyze messages.",
+                "Please try again later."
+            ]
+        }
 
 @app.post("/chat-text-data")
-async def receive_chat_data(session: ChatSession):
-    try:
-        logger.info(f"=== NEW CHAT SESSION: {session.sessionId} ===")
-        analysis = []
-        if session.messages:
-            for message in session.messages:
-                toxicity_inference = predict_toxicity_local(message)
-                fb = "Please be more polite." if toxicity_inference["is_toxic"] else "Good job."
-                
-                raw_emotions = emotion_classifier(message)[0] if emotion_classifier else []
-                emotions = [{"label": e["label"], "score": float(e["score"])} for e in raw_emotions]
+async def process_chat_data(session: ChatSession):
+    # Simple call to the analysis function
+    result = analyze_toxicity(session.messages)
+    
+    analysis = {
+        "toxicityScore": result["toxicity_score"],
+        "feedback": result["feedback"],
+        "startTimestamp": session.startTimestamp,
+        "endTimestamp": session.endTimestamp
+    }
+    # Return the exact format you wanted
+    return {
+        "status": "success",
+        "session_id": session.sessionId,
+        "analysis": analysis
+    }
 
-                analysis.append({
-                    "message": message,
-                    "toxicity_inference": toxicity_inference,
-                    "feedback": fb,
-                    "emotions": emotions
-                })
+# @app.post("/analyze-emotion")
+# async def analyze_emotion(data: ChatText):
+#     if not emotion_classifier:
+#         raise HTTPException(status_code=503, detail="Emotion model not loaded")
+#     results = emotion_classifier(data.chatText)
+#     return {"text": data.chatText, "emotions": results}
+
+# def predict_toxicity_local(message: str):
+#     if not tokenizer or not model: return {"toxicity_score": 0.0}
+#     inputs = tokenizer(message, return_tensors="pt", truncation=True, max_length=512, padding=True).to(DEVICE)
+#     with torch.no_grad():
+#         outputs = model(**inputs)
+#         probabilities = torch.softmax(outputs.logits, dim=-1).squeeze().cpu().numpy()
+#     score = float(probabilities[1])
+#     return {"is_toxic": score >= TOXICITY_THRESHOLD, "toxicity_score": score}
+
+# @app.post("/chat-text-data")
+# async def receive_chat_data(session: ChatSession):
+#     try:
+#         logger.info(f"=== NEW CHAT SESSION: {session.sessionId} ===")
+#         analysis = []
+#         if session.messages:
+#             for message in session.messages:
+#                 toxicity_inference = predict_toxicity_local(message)
+#                 fb = "Please be more polite." if toxicity_inference["is_toxic"] else "Good job."
+                
+#                 raw_emotions = emotion_classifier(message)[0] if emotion_classifier else []
+#                 emotions = [{"label": e["label"], "score": float(e["score"])} for e in raw_emotions]
+
+#                 analysis.append({
+#                     "message": message,
+#                     "toxicity_inference": toxicity_inference,
+#                     "feedback": fb,
+#                     "emotions": emotions
+#                 })
         
-        return {
-            "status": "success",
-            "session_id": session.sessionId,
-            "analysis": analysis
-        }
-    except Exception as e:
-        logger.error(f"Error processing chat data: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+#         return {
+#             "status": "success",
+#             "session_id": session.sessionId,
+#             "analysis": analysis
+#         }
+#     except Exception as e:
+#         logger.error(f"Error processing chat data: {e}")
+#         raise HTTPException(status_code=500, detail=str(e))

@@ -14,6 +14,7 @@ import { LineChart } from 'react-native-chart-kit';
 import { Dimensions } from 'react-native';
 import { getChat } from "../services/chatInferenceService";
 import ToxicityChart from "../components/ToxicityChart";
+import VoiceToxicityChart from '../components/VoiceToxicityChart';
 
 const AnalyticsScreen = () => {
   const insets = useSafeAreaInsets();
@@ -94,7 +95,7 @@ const AnalyticsScreen = () => {
     const fetchChatData = async () => {
       try {
         console.log("Fetching chat data for user:", user?._id);
-        const response = await getChat(user._id);
+        const response = await getChat("6903301b93ef8bdb5a368a28");
         console.log("Chat data response:", response);
 
         if (response && response.chats) {
@@ -109,11 +110,12 @@ const AnalyticsScreen = () => {
       }
     };
 
-    if (user?._id) {
-      console.log("User ID available, fetching chat data.");
-      fetchChatData();
-    }
-  }, [user]);
+    // if (user?._id) {
+    //   console.log("User ID available, fetching chat data.");
+    //   fetchChatData();
+    // }
+    fetchChatData();
+  }, []);
 
   const chartConfig = {
     backgroundColor: '#ffffff',
@@ -135,16 +137,6 @@ const AnalyticsScreen = () => {
     },
   };
 
-  // Default data if no chats
-  const defaultToxicityData = {
-    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-    datasets: [{
-      data: [0.2, 0.4, 0.3, 0.1, 0.5, 0.2, 0.1],
-      color: (opacity = 1) => `rgba(255, 59, 48, ${opacity})`,
-      strokeWidth: 2,
-    }],
-  };
-
   // Calculate statistics
   const totalChats = chats.length;
   const avgToxicity = totalChats > 0 
@@ -154,6 +146,29 @@ const AnalyticsScreen = () => {
   const safeChatsPercentage = totalChats > 0 
     ? ((safeChats / totalChats) * 100).toFixed(1)
     : "0.0";
+
+  const defaultToxicityData = {
+        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        datasets: [{
+            data: [0.2, 0.4, 0.3, 0.1, 0.5, 0.2, 0.3],
+            color: (opacity = 1) => `rgba(255, 59, 48, ${opacity})`,
+            strokeWidth: 2,
+        }],
+    };
+
+    // Feedback messages for each data point
+    const feedbackMessages = [
+        "You could have controlled your anger. Try taking a deep breath before responding.",
+        "Your response showed improvement in managing frustration.",
+        "Consider using more positive language to express your concerns.",
+        "Good job managing your tone! Keep up the constructive communication.",
+        "Some responses were harsh. Try framing feedback more gently.",
+        "You handled the difficult conversation well.",
+        "Be mindful of sarcasm - it can sometimes escalate tensions."
+    ];
+
+    const dayLabels = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const totalRecords = defaultToxicityData.datasets[0].data.length;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -178,7 +193,7 @@ const AnalyticsScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         {/* Toxicity Trend Chart */}
-        <ToxicityChart title="Chat Toxicity" data={null}/>
+        <ToxicityChart title="Chat text toxicity" data={chats} />
 
         {/* Statistics Overview */}
         <View style={styles.statsContainer}>
