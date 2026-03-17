@@ -23,21 +23,21 @@ const Tab = createBottomTabNavigator();
 
 // Wrapper component for tab navigator
 function MainAppTabs() {
-  // Removed the wrapping View with padding. 
-  // The TabBar is now floating, so screens take full height.
   return (
-    <Tab.Navigator
-      tabBar={(props) => <CustomTabBar {...props} />}
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Features" component={FeaturesScreen} />
-      <Tab.Screen name="Chat Analytics" component={AnalyticsScreen} />
-      <Tab.Screen name="Voice Analytics" component={VoiceAnalysisScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
-    </Tab.Navigator>
+    <View style={{ flex: 1, paddingBottom: 0 }}>
+      <Tab.Navigator
+        tabBar={(props) => <CustomTabBar {...props} />}
+        screenOptions={{
+          headerShown: false,
+        }}
+      >
+        <Tab.Screen name="Home" component={HomeScreen} />
+        <Tab.Screen name="Features" component={FeaturesScreen} />
+        <Tab.Screen name="Chat Analytics" component={AnalyticsScreen} />
+        <Tab.Screen name="Voice Analytics" component={VoiceAnalysisScreen} />
+        <Tab.Screen name="Profile" component={ProfileScreen} />
+      </Tab.Navigator>
+    </View>
   );
 }
 
