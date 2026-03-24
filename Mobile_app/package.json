@@ -21,6 +21,7 @@
     "bcrypt": "^6.0.0",
     "expo": "~54.0.31",
     "expo-av": "~16.0.8",
+    "expo-blur": "~15.0.8",
     "expo-font": "~14.0.10",
     "expo-linear-gradient": "~15.0.8",
     "expo-secure-store": "~15.0.8",

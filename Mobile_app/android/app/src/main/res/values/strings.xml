@@ -1,5 +1,7 @@
 <resources>
-  <string name="app_name">MindScope</string>
+    <string name="blocker_service_label">Mindscope Section Blocker</string>
+    <string name="blocker_service_description">Detects when blocked sections of Instagram or YouTube are open and shows a mindful overlay to help you stay focused.</string>
+    <string name="app_name">MindScope</string>
     
     <string name="chat_service_label">MindScope: Chat Analysis</string>
     <string name="screen_service_label">MindScope: Screen Controller</string>
