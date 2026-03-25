@@ -16,25 +16,17 @@ const DEFAULT_SETTINGS = {
     blockPiP: false,
     blockComments: false,
   },
+  whatsapp: {
+    masterEnabled: false,
+    blockStatus: false,
+    blockChannels: false,
+  },
 };
 
-// ─── TEMPORARY: hardcoded userId while auth flow is bypassed ─────────────────
-// Replace with user?._id once login flow is active
 const HARDCODED_USER_ID = '6903301b93ef8bdb5a368a28';
-const STORAGE_KEY = '@mindscope_blocker_v2'; // v2 key so stale cache doesn't interfere
+const STORAGE_KEY = '@mindscope_blocker_v2';
 
-/**
- * useBlockerSettings
- *
- * Persistence chain:
- *   1. AsyncStorage — loads instantly on every app open (no network needed)
- *   2. MongoDB via Express — reconciled on mount, always wins if available
- *   3. React state — instant UI updates
- *
- * Hardcoded userId used as fallback so saves never silently skip.
- */
 export const useBlockerSettings = (userIdFromContext) => {
-  // Always use hardcoded ID if context hasn't resolved yet
   const userId = userIdFromContext || HARDCODED_USER_ID;
 
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
@@ -50,23 +42,26 @@ export const useBlockerSettings = (userIdFromContext) => {
     console.log('[Blocker] loadSettings for userId:', userId);
     setLoading(true);
     try {
-      // 1. AsyncStorage first — instant, no network
       const cached = await AsyncStorage.getItem(STORAGE_KEY);
       if (cached) {
         const parsed = JSON.parse(cached);
-        console.log('[Blocker] Loaded from AsyncStorage:', JSON.stringify(parsed));
-        setSettings(parsed);
-      } else {
-        console.log('[Blocker] No AsyncStorage cache found');
+        // Always merge with defaults so new keys (whatsapp) appear on old caches
+        const merged = {
+          instagram: { ...DEFAULT_SETTINGS.instagram, ...(parsed.instagram || {}) },
+          youtube:   { ...DEFAULT_SETTINGS.youtube,   ...(parsed.youtube   || {}) },
+          whatsapp:  { ...DEFAULT_SETTINGS.whatsapp,  ...(parsed.whatsapp  || {}) },
+        };
+        console.log('[Blocker] Loaded from AsyncStorage:', JSON.stringify(merged));
+        setSettings(merged);
       }
 
-      // 2. Backend reconciliation
       const remote = await fetchBlockerSettings(userId);
       console.log('[Blocker] Backend response:', JSON.stringify(remote));
-      if (remote && (remote.instagram || remote.youtube)) {
+      if (remote && (remote.instagram || remote.youtube || remote.whatsapp)) {
         const merged = {
           instagram: { ...DEFAULT_SETTINGS.instagram, ...(remote.instagram || {}) },
           youtube:   { ...DEFAULT_SETTINGS.youtube,   ...(remote.youtube   || {}) },
+          whatsapp:  { ...DEFAULT_SETTINGS.whatsapp,  ...(remote.whatsapp  || {}) },
         };
         console.log('[Blocker] Merged from backend:', JSON.stringify(merged));
         setSettings(merged);
@@ -79,22 +74,15 @@ export const useBlockerSettings = (userIdFromContext) => {
     }
   }, [userId]);
 
-  useEffect(() => {
-    loadSettings();
-  }, [loadSettings]);
+  useEffect(() => { loadSettings(); }, [loadSettings]);
 
   // ── Persist ───────────────────────────────────────────────────────────────
   const persistSettings = useCallback((newSettings) => {
     const uid = userIdRef.current;
-    console.log('[Blocker] persistSettings called, uid:', uid);
-    console.log('[Blocker] Saving:', JSON.stringify(newSettings));
-
-    // AsyncStorage — immediate, synchronous-ish
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newSettings))
       .then(() => console.log('[Blocker] AsyncStorage write SUCCESS'))
       .catch((e) => console.warn('[Blocker] AsyncStorage write FAILED:', e));
 
-    // Backend — debounced
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
       setSaving(true);
@@ -127,6 +115,14 @@ export const useBlockerSettings = (userIdFromContext) => {
     });
   }, [persistSettings]);
 
+  const updateWhatsappToggle = useCallback((key, value) => {
+    setSettings((prev) => {
+      const next = { ...prev, whatsapp: { ...prev.whatsapp, [key]: value } };
+      persistSettings(next);
+      return next;
+    });
+  }, [persistSettings]);
+
   const toggleInstagramMaster = useCallback((value) => {
     setSettings((prev) => {
       const next = { ...prev, instagram: { ...prev.instagram, masterEnabled: value } };
@@ -143,6 +139,14 @@ export const useBlockerSettings = (userIdFromContext) => {
     });
   }, [persistSettings]);
 
+  const toggleWhatsappMaster = useCallback((value) => {
+    setSettings((prev) => {
+      const next = { ...prev, whatsapp: { ...prev.whatsapp, masterEnabled: value } };
+      persistSettings(next);
+      return next;
+    });
+  }, [persistSettings]);
+
   useEffect(() => {
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   }, []);
@@ -153,7 +157,9 @@ export const useBlockerSettings = (userIdFromContext) => {
     saving,
     updateInstagramToggle,
     updateYoutubeToggle,
+    updateWhatsappToggle,
     toggleInstagramMaster,
     toggleYoutubeMaster,
+    toggleWhatsappMaster,
   };
 };

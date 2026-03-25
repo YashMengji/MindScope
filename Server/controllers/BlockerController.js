@@ -1,46 +1,22 @@
 import BlockerSettings from '../models/BlockerSettings.js';
 
-/**
- * BlockerController.js
- *
- * Handles GET and POST for the /api/blocker route.
- * Uses findOneAndUpdate with upsert:true so the first POST creates
- * the document and subsequent POSTs update it — no duplicate key errors.
- */
-
-/**
- * GET /api/blocker/:userId
- * Returns the stored blocker settings for the given user.
- * If no document exists yet, returns the schema defaults.
- */
 export const fetchSettings = async (req, res) => {
   try {
     const { userId } = req.params;
-
     const doc = await BlockerSettings.findOne({ userId });
 
     if (!doc) {
-      // Return defaults so the frontend can initialise without a 404
       return res.status(200).json({
-        instagram: {
-          masterEnabled: false,
-          blockStories:  false,
-          blockReels:    false,
-          blockExplore:  false,
-        },
-        youtube: {
-          masterEnabled:    false,
-          blockShorts:      false,
-          blockVideoSearch: false,
-          blockPiP:         false,
-          blockComments:    false,
-        },
+        instagram: { masterEnabled: false, blockStories: false, blockReels: false, blockExplore: false },
+        youtube:   { masterEnabled: false, blockShorts: false, blockVideoSearch: false, blockPiP: false, blockComments: false },
+        whatsapp:  { masterEnabled: false, blockStatus: false, blockChannels: false },
       });
     }
 
     return res.status(200).json({
       instagram: doc.instagram,
       youtube:   doc.youtube,
+      whatsapp:  doc.whatsapp,
     });
   } catch (error) {
     console.error('fetchSettings error:', error);
@@ -48,18 +24,10 @@ export const fetchSettings = async (req, res) => {
   }
 };
 
-/**
- * POST /api/blocker
- * Body: { userId, instagram: {...}, youtube: {...} }
- * Creates or updates the settings document for this user.
- */
 export const saveSettings = async (req, res) => {
   try {
-    const { userId, instagram, youtube } = req.body;
-
-    if (!userId) {
-      return res.status(400).json({ message: 'userId is required' });
-    }
+    const { userId, instagram, youtube, whatsapp } = req.body;
+    if (!userId) return res.status(400).json({ message: 'userId is required' });
 
     const doc = await BlockerSettings.findOneAndUpdate(
       { userId },
@@ -67,13 +35,10 @@ export const saveSettings = async (req, res) => {
         $set: {
           ...(instagram && { instagram }),
           ...(youtube   && { youtube }),
+          ...(whatsapp  && { whatsapp }),
         },
       },
-      {
-        new:    true,   // Return updated document
-        upsert: true,   // Create if it doesn't exist
-        setDefaultsOnInsert: true,
-      }
+      { new: true, upsert: true, setDefaultsOnInsert: true }
     );
 
     return res.status(200).json({
@@ -81,6 +46,7 @@ export const saveSettings = async (req, res) => {
       data: {
         instagram: doc.instagram,
         youtube:   doc.youtube,
+        whatsapp:  doc.whatsapp,
       },
     });
   } catch (error) {

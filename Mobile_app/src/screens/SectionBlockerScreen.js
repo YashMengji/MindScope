@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,8 +15,9 @@ import { AuthContext } from "../context/AuthContext";
 import { useBlockerSettings } from "../hooks/useBlockerSettings";
 import NativeAccessibilityService from "../bridge/NativeAccessibilityService";
 
-const INSTAGRAM_COLOR = "#E1306C";
-const YOUTUBE_COLOR   = "#FF0000";
+const INSTAGRAM_COLOR  = "#E1306C";
+const YOUTUBE_COLOR    = "#FF0000";
+const WHATSAPP_COLOR   = "#25D366";
 
 // ─── Toggle Row ───────────────────────────────────────────────────────────────
 const BlockToggleRow = ({ label, icon, value, onValueChange, disabled }) => (
@@ -80,16 +80,20 @@ const SectionBlockerScreen = ({ navigation }) => {
     saving,
     updateInstagramToggle,
     updateYoutubeToggle,
+    updateWhatsappToggle,
     toggleInstagramMaster,
     toggleYoutubeMaster,
+    toggleWhatsappMaster,
   } = useBlockerSettings(user?._id);
 
   // ── Sync native service whenever settings change ──────────────────────────
   useEffect(() => {
-    if (loading) return; // Don't act on initial default state
+    if (loading) return;
 
     const shouldRun =
-      settings.instagram.masterEnabled || settings.youtube.masterEnabled;
+      settings.instagram.masterEnabled ||
+      settings.youtube.masterEnabled ||
+      settings.whatsapp.masterEnabled;
 
     if (shouldRun && !serviceRunning) {
       NativeAccessibilityService.startService(settings)
@@ -106,7 +110,7 @@ const SectionBlockerScreen = ({ navigation }) => {
     }
   }, [settings, loading]);
 
-  // ── Master toggle handler: prompt if service not enabled ──────────────────
+  // ── Master toggle handler ─────────────────────────────────────────────────
   const handleMasterToggle = useCallback(
     (platform, newValue) => {
       if (newValue && !NativeAccessibilityService.isAvailable()) {
@@ -124,9 +128,10 @@ const SectionBlockerScreen = ({ navigation }) => {
         return;
       }
       if (platform === "instagram") toggleInstagramMaster(newValue);
-      else toggleYoutubeMaster(newValue);
+      else if (platform === "youtube") toggleYoutubeMaster(newValue);
+      else if (platform === "whatsapp") toggleWhatsappMaster(newValue);
     },
-    [toggleInstagramMaster, toggleYoutubeMaster]
+    [toggleInstagramMaster, toggleYoutubeMaster, toggleWhatsappMaster]
   );
 
   if (loading) {
@@ -148,7 +153,7 @@ const SectionBlockerScreen = ({ navigation }) => {
         <View style={styles.headerTextBlock}>
           <Text style={styles.headerTitle}>Section Blocker</Text>
           <Text style={styles.headerSubtitle}>
-            Block specific parts of Instagram & YouTube
+            Block specific parts of Instagram, YouTube & WhatsApp
           </Text>
         </View>
         {saving && <ActivityIndicator size="small" color="#6366F1" />}
@@ -168,7 +173,7 @@ const SectionBlockerScreen = ({ navigation }) => {
           </Text>
         </View>
 
-        {/* Instagram Card */}
+        {/* ── Instagram Card ── */}
         <AppBlockCard
           appName="Instagram"
           appColor={INSTAGRAM_COLOR}
@@ -199,7 +204,7 @@ const SectionBlockerScreen = ({ navigation }) => {
           />
         </AppBlockCard>
 
-        {/* YouTube Card */}
+        {/* ── YouTube Card ── */}
         <AppBlockCard
           appName="YouTube"
           appColor={YOUTUBE_COLOR}
@@ -237,6 +242,30 @@ const SectionBlockerScreen = ({ navigation }) => {
           />
         </AppBlockCard>
 
+        {/* ── WhatsApp Card ── */}
+        <AppBlockCard
+          appName="WhatsApp"
+          appColor={WHATSAPP_COLOR}
+          iconName="logo-whatsapp"
+          masterEnabled={settings.whatsapp.masterEnabled}
+          onMasterToggle={(val) => handleMasterToggle("whatsapp", val)}
+        >
+          <BlockToggleRow
+            label="Block Status"
+            icon="eye-outline"
+            value={settings.whatsapp.blockStatus}
+            onValueChange={(val) => updateWhatsappToggle("blockStatus", val)}
+            disabled={!settings.whatsapp.masterEnabled}
+          />
+          <BlockToggleRow
+            label="Block Channels"
+            icon="megaphone-outline"
+            value={settings.whatsapp.blockChannels}
+            onValueChange={(val) => updateWhatsappToggle("blockChannels", val)}
+            disabled={!settings.whatsapp.masterEnabled}
+          />
+        </AppBlockCard>
+
         {/* Service status pill */}
         <View style={styles.statusRow}>
           <View style={[styles.statusDot, { backgroundColor: serviceRunning ? "#10B981" : "#9CA3AF" }]} />
@@ -259,19 +288,15 @@ const styles = StyleSheet.create({
   loadingText: { marginTop: 14, fontSize: 15, color: "#6B7280" },
 
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#EEEEEE",
+    flexDirection: "row", alignItems: "center",
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: "#EEEEEE",
     backgroundColor: "#FFFFFF",
   },
   backButton: {
     width: 36, height: 36, borderRadius: 18,
     backgroundColor: "#F3F4F6",
-    justifyContent: "center", alignItems: "center",
-    marginRight: 12,
+    justifyContent: "center", alignItems: "center", marginRight: 12,
   },
   headerTextBlock: { flex: 1 },
   headerTitle: { fontSize: 18, fontWeight: "700", color: "#0A2E5B" },
