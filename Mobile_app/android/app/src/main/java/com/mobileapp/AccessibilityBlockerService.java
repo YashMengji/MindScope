@@ -33,13 +33,13 @@ import org.json.JSONObject;
  */
 public class AccessibilityBlockerService extends AccessibilityService {
 
-    private static final String TAG            = "BlockerService";
-    private static final String PREFS_NAME     = "MindScopeBlocker";
+    private static final String TAG = "BlockerService";
+    private static final String PREFS_NAME = "MindScopeBlocker";
     private static final String PREFS_SETTINGS = "settings_json";
-    private static final String PKG_INSTAGRAM  = "com.instagram.android";
-    private static final String PKG_YOUTUBE    = "com.google.android.youtube";
-    private static final String PKG_WHATSAPP   = "com.whatsapp";
-    private static final long   COOLDOWN_MS    = 3000;
+    private static final String PKG_INSTAGRAM = "com.instagram.android";
+    private static final String PKG_YOUTUBE = "com.google.android.youtube";
+    private static final String PKG_WHATSAPP = "com.whatsapp";
+    private static final long COOLDOWN_MS = 3000;
 
     public static AccessibilityBlockerService instance = null;
 
@@ -49,11 +49,11 @@ public class AccessibilityBlockerService extends AccessibilityService {
     private boolean overlayShowing = false;
 
     private static final String[] MESSAGES = {
-        "Your attention is precious.\nThis section was designed to keep you scrolling.\nYou chose differently — that takes strength.",
-        "A mindful pause.\nEvery distraction you skip is a moment\nreturned to the life you actually want to live.",
-        "You're in control.\nBreaking the scroll habit is hard.\nSetting this up means you're already winning.",
-        "Protect your focus.\nYour goals and creativity need the time\nyou'd spend here. They're worth it.",
-        "This was intentional.\nYou set this boundary for a reason.\nTrust your past self — they were looking out for you."
+            "Your attention is precious.\nThis section was designed to keep you scrolling.\nYou chose differently — that takes strength.",
+            "A mindful pause.\nEvery distraction you skip is a moment\nreturned to the life you actually want to live.",
+            "You're in control.\nBreaking the scroll habit is hard.\nSetting this up means you're already winning.",
+            "Protect your focus.\nYour goals and creativity need the time\nyou'd spend here. They're worth it.",
+            "This was intentional.\nYou set this boundary for a reason.\nTrust your past self — they were looking out for you."
     };
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -93,95 +93,162 @@ public class AccessibilityBlockerService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        if (event == null) return;
+        if (event == null)
+            return;
 
         String pkg = event.getPackageName() != null
-                ? event.getPackageName().toString() : "";
+                ? event.getPackageName().toString()
+                : "";
 
         boolean isInstagram = pkg.equals(PKG_INSTAGRAM);
-        boolean isYoutube   = pkg.equals(PKG_YOUTUBE);
-        boolean isWhatsapp  = pkg.equals(PKG_WHATSAPP);
-        if (!isInstagram && !isYoutube && !isWhatsapp) return;
+        boolean isYoutube = pkg.equals(PKG_YOUTUBE);
+        boolean isWhatsapp = pkg.equals(PKG_WHATSAPP);
+        if (!isInstagram && !isYoutube && !isWhatsapp)
+            return;
 
         int type = event.getEventType();
         if (type != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
                 && type != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
-                && type != AccessibilityEvent.TYPE_WINDOWS_CHANGED) return;
+                && type != AccessibilityEvent.TYPE_WINDOWS_CHANGED)
+            return;
 
         long now = System.currentTimeMillis();
-        if (now - lastTriggerTime < COOLDOWN_MS) return;
+        if (now - lastTriggerTime < COOLDOWN_MS)
+            return;
 
         JSONObject settings = loadSettings();
-        if (settings == null) return;
+        if (settings == null)
+            return;
 
         String className = event.getClassName() != null
-                ? event.getClassName().toString().toLowerCase() : "";
+                ? event.getClassName().toString().toLowerCase()
+                : "";
 
         Log.d(TAG, "📱 Event pkg=" + pkg + " class=" + className);
 
-        if (isInstagram)      checkInstagram(settings, className);
-        else if (isYoutube)   checkYoutube(settings, className);
-        else if (isWhatsapp)  checkWhatsapp(settings, className);
+        if (isInstagram)
+            checkInstagram(settings, className);
+        else if (isYoutube)
+            checkYoutube(settings, className);
+        else if (isWhatsapp)
+            checkWhatsapp(settings, className);
     }
+
+    // ── Instagram ─────────────────────────────────────────────────────────────
 
     // ── Instagram ─────────────────────────────────────────────────────────────
 
     private void checkInstagram(JSONObject settings, String className) {
         try {
             JSONObject ig = settings.optJSONObject("instagram");
-            if (ig == null || !ig.optBoolean("masterEnabled", false)) return;
+            if (ig == null || !ig.optBoolean("masterEnabled", false))
+                return;
             AccessibilityNodeInfo root = getRootInActiveWindow();
 
-            if (ig.optBoolean("blockStories", false)
-                    && (className.contains("story") || hasNodeWithText(root, "Your story")
-                    || hasNodeWithViewId(root, "story"))) {
-                triggerBlock("Instagram", "Stories"); return;
+            // 1. Stories
+            if (ig.optBoolean("blockStories", false) && isInstagramStoryOpen(root, className)) {
+                triggerBlock("Instagram", "Stories");
+                return;
             }
-            if (ig.optBoolean("blockReels", false)
-                    && (className.contains("reel") || hasNodeWithViewId(root, "clips_tab")
-                    || hasNodeWithText(root, "Reels"))) {
-                triggerBlock("Instagram", "Reels"); return;
+
+            // 2. Reels
+            if (ig.optBoolean("blockReels", false) && isInstagramReelsOpen(root, className)) {
+                triggerBlock("Instagram", "Reels");
+                return;
             }
-            if (ig.optBoolean("blockExplore", false)
-                    && (className.contains("explore") || className.contains("search")
-                    || hasNodeWithViewId(root, "action_bar_search_edit_text"))) {
+
+            // 3. Explore
+            if (ig.optBoolean("blockExplore", false) && isInstagramExploreOpen(root, className)) {
                 triggerBlock("Instagram", "Explore");
             }
-        } catch (Exception e) { Log.e(TAG, "Instagram check: " + e.getMessage()); }
+        } catch (Exception e) {
+            Log.e(TAG, "Instagram check: " + e.getMessage());
+        }
     }
 
+    // ── Instagram Detection Helpers ───────────────────────────────────────────
+
+    private boolean isInstagramStoryOpen(AccessibilityNodeInfo root, String className) {
+        // IG internally calls the Story Viewer "ReelViewer" or "StoryViewer"
+        if (className.contains("reelviewer") || className.contains("storyviewer")) {
+            return true;
+        }
+
+        // These IDs only exist when actually INSIDE a playing story, not on the home
+        // feed
+        if (hasNodeWithViewId(root, "reel_viewer_root"))
+            return true;
+        if (hasNodeWithViewId(root, "reel_viewer_progress_bar"))
+            return true;
+        if (hasNodeWithViewId(root, "viewer_message_edit_text"))
+            return true; // The "Send message" box in stories
+
+        return false;
+    }
+
+    private boolean isInstagramReelsOpen(AccessibilityNodeInfo root, String className) {
+        // We removed the className check here because Instagram fires background events 
+        // with the "clipsviewer" class name even when you are on the Home feed.
+        
+        // These IDs will now ONLY trigger if they are actively visible on the screen
+        if (hasNodeWithViewId(root, "clips_viewer_view_pager")) return true;
+        if (hasNodeWithViewId(root, "clips_video_container")) return true;
+        if (hasNodeWithViewId(root, "vertical_view_pager")) return true;
+        
+        return false;
+    }
+
+    private boolean isInstagramExploreOpen(AccessibilityNodeInfo root, String className) {
+        if (className.contains("explore"))
+            return true;
+
+        // Only block if they are actively in the search bar or explore grid
+        if (hasNodeWithViewId(root, "action_bar_search_edit_text"))
+            return true;
+        if (hasNodeWithViewId(root, "explore_all_tab"))
+            return true;
+
+        return false;
+    }
     // ── YouTube ───────────────────────────────────────────────────────────────
 
     private void checkYoutube(JSONObject settings, String className) {
         try {
             JSONObject yt = settings.optJSONObject("youtube");
-            if (yt == null || !yt.optBoolean("masterEnabled", false)) return;
+            if (yt == null || !yt.optBoolean("masterEnabled", false))
+                return;
             AccessibilityNodeInfo root = getRootInActiveWindow();
 
             if (yt.optBoolean("blockShorts", false)
                     && isShortsPlayerOpen(root, className)) {
-                triggerBlock("YouTube", "Shorts"); return;
+                triggerBlock("YouTube", "Shorts");
+                return;
             }
             if (yt.optBoolean("blockVideoSearch", false)
                     && (className.contains("search")
-                    || hasNodeWithViewId(root, "search_edit_text"))) {
-                triggerBlock("YouTube", "Video Search"); return;
+                            || hasNodeWithViewId(root, "search_edit_text"))) {
+                triggerBlock("YouTube", "Video Search");
+                return;
             }
             if (yt.optBoolean("blockPiP", false)
                     && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 try {
                     for (AccessibilityWindowInfo w : getWindows()) {
                         if (w.isInPictureInPictureMode()) {
-                            triggerBlock("YouTube", "Picture-in-Picture"); return;
+                            triggerBlock("YouTube", "Picture-in-Picture");
+                            return;
                         }
                     }
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             }
             if (yt.optBoolean("blockComments", false)
                     && isCommentsPanelOpen(root)) {
                 triggerBlock("YouTube", "Comments");
             }
-        } catch (Exception e) { Log.e(TAG, "YouTube check: " + e.getMessage()); }
+        } catch (Exception e) {
+            Log.e(TAG, "YouTube check: " + e.getMessage());
+        }
     }
 
     // ── WhatsApp detection ───────────────────────────────────────────────────
@@ -206,7 +273,9 @@ public class AccessibilityBlockerService extends AccessibilityService {
                 triggerBlock("WhatsApp", "Channel");
             }
 
-        } catch (Exception e) { Log.e(TAG, "WhatsApp check: " + e.getMessage()); }
+        } catch (Exception e) {
+            Log.e(TAG, "WhatsApp check: " + e.getMessage());
+        }
     }
 
     // ── WhatsApp Status viewer detection ─────────────────────────────────────
@@ -218,31 +287,40 @@ public class AccessibilityBlockerService extends AccessibilityService {
                 || className.contains("statusview")) {
             return true;
         }
-        if (hasNodeWithViewId(root, "status_progress")) return true;
-        if (hasNodeWithViewId(root, "status_send_message_container")) return true;
-        if (hasNodeWithViewId(root, "status_view_emoji_button")) return true;
+        if (hasNodeWithViewId(root, "status_progress"))
+            return true;
+        if (hasNodeWithViewId(root, "status_send_message_container"))
+            return true;
+        if (hasNodeWithViewId(root, "status_view_emoji_button"))
+            return true;
         return false;
     }
 
     // ── WhatsApp Channel viewer detection ─────────────────────────────────────
 
     private boolean isChannelViewerOpen(AccessibilityNodeInfo root, String className) {
-        // WhatsApp uses "com.whatsapp.conversation" for BOTH regular chats and Channels.
+        // WhatsApp uses "com.whatsapp.conversation" for BOTH regular chats and
+        // Channels.
         // We rely on specific View IDs and Text found in live logs.
-        
-        // 1. Channel messages use specific "newsletter" forwarding buttons
-        if (hasNodeWithViewId(root, "newsletter_quick_forwarding")) return true;
-        if (hasNodeWithViewId(root, "newsletter_feed_recycler")) return true;
 
-        // 2. The subtitle under the Channel name explicitly says "followers" (Regular chats say online/last seen)
+        // 1. Channel messages use specific "newsletter" forwarding buttons
+        if (hasNodeWithViewId(root, "newsletter_quick_forwarding"))
+            return true;
+        if (hasNodeWithViewId(root, "newsletter_feed_recycler"))
+            return true;
+
+        // 2. The subtitle under the Channel name explicitly says "followers" (Regular
+        // chats say online/last seen)
         if (hasNodeWithText(root, "followers") && hasNodeWithViewId(root, "conversation_contact_status")) {
             return true;
         }
 
         // 3. Fallbacks
-        if (hasNodeWithViewId(root, "channel_info_banner")) return true;
-        if (hasNodeWithViewId(root, "channel_follow_button")) return true;
-        
+        if (hasNodeWithViewId(root, "channel_info_banner"))
+            return true;
+        if (hasNodeWithViewId(root, "channel_follow_button"))
+            return true;
+
         return false;
     }
 
@@ -255,10 +333,14 @@ public class AccessibilityBlockerService extends AccessibilityService {
                 || className.contains("shorts_player")) {
             return true;
         }
-        if (hasNodeWithViewId(root, "reel_player_page")) return true;
-        if (hasNodeWithViewId(root, "reel_channel_bar")) return true;
-        if (hasNodeWithViewId(root, "shorts_video_container")) return true;
-        if (hasNodeWithViewId(root, "like_button") && hasNodeWithViewId(root, "dislike_button")) return true;
+        if (hasNodeWithViewId(root, "reel_player_page"))
+            return true;
+        if (hasNodeWithViewId(root, "reel_channel_bar"))
+            return true;
+        if (hasNodeWithViewId(root, "shorts_video_container"))
+            return true;
+        if (hasNodeWithViewId(root, "like_button") && hasNodeWithViewId(root, "dislike_button"))
+            return true;
         return false;
     }
 
@@ -270,14 +352,20 @@ public class AccessibilityBlockerService extends AccessibilityService {
                 return true;
             }
         }
-        if (hasNodeWithViewId(root, "sort_filter_button") && !hasNodeWithViewId(root, "reel_player_page")) return true;
-        if (hasNodeWithText(root, "Top comments") && !hasNodeWithViewId(root, "reel_player_page")) return true;
+        if (hasNodeWithViewId(root, "sort_filter_button") && !hasNodeWithViewId(root, "reel_player_page"))
+            return true;
+        if (hasNodeWithText(root, "Top comments") && !hasNodeWithViewId(root, "reel_player_page"))
+            return true;
 
         if (hasNodeWithViewId(root, "reel_player_page") || hasNodeWithViewId(root, "reel_channel_bar")) {
-            if (hasNodeWithViewId(root, "comments_panel_header")) return true;
-            if (hasNodeWithViewId(root, "reply_composer_stub")) return true;
-            if (hasNodeWithViewId(root, "sort_filter_button")) return true;
-            if (hasNodeWithText(root, "Top comments")) return true;
+            if (hasNodeWithViewId(root, "comments_panel_header"))
+                return true;
+            if (hasNodeWithViewId(root, "reply_composer_stub"))
+                return true;
+            if (hasNodeWithViewId(root, "sort_filter_button"))
+                return true;
+            if (hasNodeWithText(root, "Top comments"))
+                return true;
         }
         return false;
     }
@@ -297,10 +385,11 @@ public class AccessibilityBlockerService extends AccessibilityService {
     // ── Native overlay window ─────────────────────────────────────────────────
 
     private void showNativeOverlay(String app, String section) {
-        if (overlayShowing || windowManager == null) return;
+        if (overlayShowing || windowManager == null)
+            return;
 
         try {
-            String message = MESSAGES[(int)(Math.random() * MESSAGES.length)];
+            String message = MESSAGES[(int) (Math.random() * MESSAGES.length)];
             String reasonText = app + "  ›  " + section;
 
             LinearLayout root = new LinearLayout(this);
@@ -376,31 +465,36 @@ public class AccessibilityBlockerService extends AccessibilityService {
                     WindowManager.LayoutParams.MATCH_PARENT,
                     WindowManager.LayoutParams.MATCH_PARENT,
                     overlayType,
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
-                    PixelFormat.TRANSLUCENT
-            );
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                            | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+                    PixelFormat.TRANSLUCENT);
 
             windowManager.addView(root, params);
             overlayView = root;
             overlayShowing = true;
 
-        } catch (Exception e) { Log.e(TAG, "showNativeOverlay failed: " + e.getMessage()); }
+        } catch (Exception e) {
+            Log.e(TAG, "showNativeOverlay failed: " + e.getMessage());
+        }
     }
 
     private void dismissOverlay() {
-        if (!overlayShowing || overlayView == null || windowManager == null) return;
+        if (!overlayShowing || overlayView == null || windowManager == null)
+            return;
         try {
             windowManager.removeView(overlayView);
             overlayView = null;
             overlayShowing = false;
-        } catch (Exception e) { Log.e(TAG, "dismissOverlay error: " + e.getMessage()); }
+        } catch (Exception e) {
+            Log.e(TAG, "dismissOverlay error: " + e.getMessage());
+        }
     }
 
     private void addVerticalSpace(LinearLayout parent, int dp) {
         View space = new View(this);
         float density = getResources().getDisplayMetrics().density;
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, (int)(dp * density));
+                LinearLayout.LayoutParams.MATCH_PARENT, (int) (dp * density));
         space.setLayoutParams(p);
         parent.addView(space);
     }
@@ -408,36 +502,55 @@ public class AccessibilityBlockerService extends AccessibilityService {
     // ── Helper methods ────────────────────────────────────────────────────────
 
     private boolean hasNodeWithViewId(AccessibilityNodeInfo root, String keyword) {
-        if (root == null) return false;
+        if (root == null)
+            return false;
         try {
             String id = root.getViewIdResourceName();
-            if (id != null && id.toLowerCase().contains(keyword.toLowerCase())) return true;
+
+            // ✅ CRITICAL FIX: Ensure the node is actually visible on the screen
+            if (root.isVisibleToUser() && id != null && id.toLowerCase().contains(keyword.toLowerCase())) {
+                return true;
+            }
+
             for (int i = 0; i < root.getChildCount(); i++) {
                 AccessibilityNodeInfo child = root.getChild(i);
                 boolean found = hasNodeWithViewId(child, keyword);
-                if (child != null) child.recycle();
-                if (found) return true;
+                if (child != null)
+                    child.recycle();
+                if (found)
+                    return true;
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
         return false;
     }
 
     private boolean hasNodeWithText(AccessibilityNodeInfo root, String keyword) {
-        if (root == null) return false;
+        if (root == null)
+            return false;
         try {
             CharSequence text = root.getText();
             CharSequence desc = root.getContentDescription();
             String kw = keyword.toLowerCase();
-            if ((text != null && text.toString().toLowerCase().contains(kw))
-                    || (desc != null && desc.toString().toLowerCase().contains(kw)))
-                return true;
+
+            // ✅ CRITICAL FIX: Ensure the node is actually visible on the screen
+            if (root.isVisibleToUser()) {
+                if ((text != null && text.toString().toLowerCase().contains(kw))
+                        || (desc != null && desc.toString().toLowerCase().contains(kw))) {
+                    return true;
+                }
+            }
+
             for (int i = 0; i < root.getChildCount(); i++) {
                 AccessibilityNodeInfo child = root.getChild(i);
                 boolean found = hasNodeWithText(child, keyword);
-                if (child != null) child.recycle();
-                if (found) return true;
+                if (child != null)
+                    child.recycle();
+                if (found)
+                    return true;
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
         return false;
     }
 
@@ -447,15 +560,25 @@ public class AccessibilityBlockerService extends AccessibilityService {
         try {
             SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
             String json = prefs.getString(PREFS_SETTINGS, null);
-            if (json == null || json.equals("{}")) return null;
+            if (json == null || json.equals("{}"))
+                return null;
             return new JSONObject(json);
-        } catch (Exception e) { return null; }
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     public void applySettings(String settingsJson) {
         try {
             SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
             prefs.edit().putString(PREFS_SETTINGS, settingsJson).apply();
-        } catch (Exception e) { Log.e(TAG, "applySettings error: " + e.getMessage()); }
+        } catch (Exception e) {
+            Log.e(TAG, "applySettings error: " + e.getMessage());
+        }
     }
+
 }
+
+    
+
+    
