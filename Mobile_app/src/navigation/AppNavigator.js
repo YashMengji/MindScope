@@ -17,6 +17,8 @@ import FeaturesScreen from "../screens/FeaturesScreen";
 import AnalyticsScreen from "../screens/AnalyticsScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import VoiceAnalysisScreen from "../screens/VoiceAnalysisScreen";
+import AppSelectorScreen from "../screens/AppSelectorScreen";
+import ScreenTimeSettingsScreen from "../screens/ScreenTimeSettingsScreen";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -34,8 +36,8 @@ function MainAppTabs() {
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Features" component={FeaturesScreen} />
-      <Tab.Screen name="Chat Analytics" component={AnalyticsScreen} />
-      <Tab.Screen name="Voice Analytics" component={VoiceAnalysisScreen} />
+      <Tab.Screen name="ChatAnalytics" component={AnalyticsScreen} />
+      <Tab.Screen name="VoiceAnalytics" component={VoiceAnalysisScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
@@ -55,6 +57,8 @@ const AppNavigator = () => {
         <Stack.Screen name="MainApp" component={MainAppTabs} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="SignUp" component={SignUpScreen} />
+        <Stack.Screen name="AppSelectorScreen" component={AppSelectorScreen} />
+        <Stack.Screen name="ScreenTimeSettingsScreen" component={ScreenTimeSettingsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

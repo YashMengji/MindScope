@@ -20,12 +20,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { useContext, useCallback,useRef, useEffect } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { FA5Style } from "@expo/vector-icons/build/FontAwesome5";
+import ScreenTimeControllerCard from "../components/ScreenTimeControllerCard";
 
 // Define Native Modules
 const { ChatAccessibility, CallAnalysis, ScreenController } = NativeModules;
 
 // Time options in minutes
-const TIME_OPTIONS = [1, 10, 15, 20, 30, 45, 60, 90, 120, 180];
+const TIME_OPTIONS = [0.75, 1, 10, 15, 20, 30, 45, 60, 90, 120, 180];
 
 // Custom Time Selector Component
 const TimeSelector = ({ value, onChange }) => {
@@ -123,7 +124,7 @@ const FeatureCard = ({
 
 
 // --- Main Screen Component ---
-const FeaturesScreen = () => {
+const FeaturesScreen = ({navigation}) => {
   const insets = useSafeAreaInsets();
   const { user } = useContext(AuthContext);
   const appState = useRef(AppState.currentState);
@@ -464,7 +465,9 @@ const FeaturesScreen = () => {
         /> */}
 
         {/* Screen Usage Controller */}
-        <FeatureCard
+        <ScreenTimeControllerCard onPress={() => {navigation.navigate('AppSelectorScreen');}}/>
+
+        {/* <FeatureCard
           iconName="chatbubble-ellipses-outline"
           title="Screen Usage Controller"
           value={isScreenControllerEnabled}
@@ -495,15 +498,7 @@ const FeaturesScreen = () => {
               onTimeChange={(time) => updateScreenUsageControllerFeature('cooldown', true, time)}
               showTime={true}
             />
-            {/* <SubFeatureCard
-              title="Warning overlay"
-              value={screenUsageControllerSubFeature.warningOverlay.enabled}
-              onValueChange={(val) => updateScreenUsageControllerFeature('warningOverlay', val)}
-              timeValue={screenUsageControllerSubFeature.warningOverlay.time}
-              onTimeChange={(time) => updateScreenUsageControllerFeature('warningOverlay', true, time)}
-              showTime={true}
-            /> */}
-          </FeatureCard>
+          </FeatureCard> */}
       </ScrollView>
     </View>
   );
@@ -552,12 +547,13 @@ const styles = StyleSheet.create({
     flex: 1,
     marginTop: 20,
     paddingHorizontal: 20,
+    gap: 20
   },
   card: {
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
     padding: 20,
-    marginBottom: 16,
+    // marginBottom: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,

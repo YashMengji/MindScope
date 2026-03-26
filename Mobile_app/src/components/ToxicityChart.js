@@ -8,7 +8,7 @@ export default function ToxicityChart({ title, data }) {
 
     const screenWidth = Dimensions.get('window').width;
 
-    const [selectedPoint, setSelectedPoint] = useState({});
+    const [selectedPoint, setSelectedPoint] = useState(null);
 
     // Constants for configuration
     const HALO_RADIUS = 10; // Controls the size of the highlight ring (Diameter = 20)
@@ -132,18 +132,7 @@ export default function ToxicityChart({ title, data }) {
             </Text>
 
             <View style={styles.chartWrapper}>
-                {/* Selected point indicator - positioned absolutely over the chart */}
-                {/* {selectedPoint.index >= 0 && (
-                    <View
-                        style={[
-                            styles.selectedPoint,
-                            {
-                                left: selectedPoint.x - 12, // Center the indicator (12 = half of width)
-                                top: selectedPoint.y + 12,  // Center the indicator (12 = half of height)
-                            }
-                        ]}
-                    />
-                )} */}
+                
 
                 <LineChart
                     data={chartConfigData}
@@ -182,7 +171,7 @@ export default function ToxicityChart({ title, data }) {
             </View>
 
             {/* Feedback Box - Only shown when a point is selected */}
-            {selectedPoint.index >= 0 ? (
+            {/* {selectedPoint.index >= 0 ? (
                 <View style={styles.feedbackContainer}>
                     <View style={styles.feedbackHeader}>
                         <Text style={styles.feedbackTitle}>
@@ -224,7 +213,45 @@ export default function ToxicityChart({ title, data }) {
                     </Text>
                 </View>
             )}
-        </View>
+        </View> */}
+
+        {selectedPoint ? (
+                <View style={styles.feedbackCard}>
+                  <View style={styles.cardHeader}>
+                    <View>
+                      <Text style={styles.cardLabel}>AI ANALYSIS REPORT</Text>
+                      <Text style={styles.cardTimestamp}>
+                        {new Date(selectedPoint.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                    </View>
+                    <View style={styles.scoreBadge}>
+                      <Text style={styles.scoreText}>{(selectedPoint.toxicityScore * 100).toFixed(0)}%</Text>
+                      <Text style={styles.scoreSub}>Toxicity</Text>
+                    </View>
+                  </View>
+        
+                  <View style={styles.feedbackList}>
+                    {selectedPoint.feedback && selectedPoint.feedback.map((item, index) => (
+                      <View key={index} style={styles.bulletRow}>
+                        <View style={styles.bullet} />
+                        <Text style={styles.feedbackText}>{item}</Text>
+                      </View>
+                    ))}
+                  </View>
+        
+                  <TouchableOpacity 
+                    style={styles.closeBtn} 
+                    onPress={() => setSelectedPoint(null)}
+                  >
+                    <Text style={styles.closeBtnText}>Dismiss</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyStateText}>Select a conversation point to view improvements</Text>
+                </View>
+              )}
+            </View>
     )
 }
 
@@ -278,87 +305,185 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.3,
         shadowRadius: 3,
     },
-    feedbackContainer: {
-        backgroundColor: "#F0F8FF",
-        borderRadius: 12,
-        padding: 16,
-        marginTop: 16,
-        borderWidth: 1,
-        borderColor: "#0A2E5B",
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-        elevation: 1,
-    },
-    feedbackHeader: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: "#0A2E5B",
-        paddingBottom: 8,
-    },
-    feedbackTitle: {
-        fontSize: 16,
-        fontWeight: "bold",
-        color: "#0A2E5B",
-    },
-    feedbackScore: {
-        fontSize: 16,
-        fontWeight: "bold",
-        color: "#FF3B30",
-        backgroundColor: "#FFEBE9",
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 12,
-    },
-    bulletRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        marginBottom: 10,
-    },
-    bullet: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: '#5E72E4',
-        marginTop: 7,
-        marginRight: 12,
-    },
-    feedbackText: {
-        flex: 1,
-        fontSize: 14,
-        color: '#525F7F',
-        lineHeight: 20,
-    },
-    deselectButton: {
-        backgroundColor: "#0A2E5B",
-        paddingVertical: 8,
-        paddingHorizontal: 16,
-        borderRadius: 8,
-        alignSelf: "flex-end",
-    },
-    deselectButtonText: {
-        color: "#FFF",
-        fontSize: 14,
-        fontWeight: "600",
-    },
-    placeholderContainer: {
-        backgroundColor: "#F8F9FA",
-        borderRadius: 12,
-        padding: 20,
-        marginTop: 16,
-        borderWidth: 1,
-        borderColor: "#DDD",
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    placeholderText: {
-        fontSize: 14,
-        color: "#666",
-        fontStyle: "italic",
-        textAlign: "center",
-    },
+    // feedbackContainer: {
+    //     backgroundColor: "#F0F8FF",
+    //     borderRadius: 12,
+    //     padding: 16,
+    //     marginTop: 16,
+    //     borderWidth: 1,
+    //     borderColor: "#0A2E5B",
+    //     shadowColor: "#000",
+    //     shadowOffset: { width: 0, height: 1 },
+    //     shadowOpacity: 0.1,
+    //     shadowRadius: 3,
+    //     elevation: 1,
+    // },
+    // feedbackHeader: {
+    //     flexDirection: "row",
+    //     justifyContent: "space-between",
+    //     alignItems: "center",
+    //     marginBottom: 12,
+    //     borderBottomWidth: 1,
+    //     borderBottomColor: "#0A2E5B",
+    //     paddingBottom: 8,
+    // },
+    // feedbackTitle: {
+    //     fontSize: 16,
+    //     fontWeight: "bold",
+    //     color: "#0A2E5B",
+    // },
+    // feedbackScore: {
+    //     fontSize: 16,
+    //     fontWeight: "bold",
+    //     color: "#FF3B30",
+    //     backgroundColor: "#FFEBE9",
+    //     paddingHorizontal: 10,
+    //     paddingVertical: 4,
+    //     borderRadius: 12,
+    // },
+    // bulletRow: {
+    //     flexDirection: 'row',
+    //     alignItems: 'flex-start',
+    //     marginBottom: 10,
+    // },
+    // bullet: {
+    //     width: 6,
+    //     height: 6,
+    //     borderRadius: 3,
+    //     backgroundColor: '#5E72E4',
+    //     marginTop: 7,
+    //     marginRight: 12,
+    // },
+    // feedbackText: {
+    //     flex: 1,
+    //     fontSize: 14,
+    //     color: '#525F7F',
+    //     lineHeight: 20,
+    // },
+    // deselectButton: {
+    //     backgroundColor: "#0A2E5B",
+    //     paddingVertical: 8,
+    //     paddingHorizontal: 16,
+    //     borderRadius: 8,
+    //     alignSelf: "flex-end",
+    // },
+    // deselectButtonText: {
+    //     color: "#FFF",
+    //     fontSize: 14,
+    //     fontWeight: "600",
+    // },
+    // placeholderContainer: {
+    //     backgroundColor: "#F8F9FA",
+    //     borderRadius: 12,
+    //     padding: 20,
+    //     marginTop: 16,
+    //     borderWidth: 1,
+    //     borderColor: "#DDD",
+    //     alignItems: "center",
+    //     justifyContent: "center",
+    // },
+    // placeholderText: {
+    //     fontSize: 14,
+    //     color: "#666",
+    //     fontStyle: "italic",
+    //     textAlign: "center",
+    // },
+
+
+
+    feedbackCard: {
+    marginTop: 20,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#0A2E5B',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F6F9FC',
+    paddingBottom: 12,
+  },
+  cardLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#5E72E4',
+    letterSpacing: 1,
+  },
+  cardTimestamp: {
+    fontSize: 14,
+    color: '#32325D',
+    fontWeight: '600',
+  },
+  scoreBadge: {
+    alignItems: 'center',
+    backgroundColor: '#FFF5F5',
+    padding: 8,
+    borderRadius: 12,
+    minWidth: 70,
+  },
+  scoreText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#F5365C',
+  },
+  scoreSub: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: '#F5365C',
+    textTransform: 'uppercase',
+  },
+  feedbackList: {
+    marginTop: 5,
+  },
+  bulletRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  bullet: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#5E72E4',
+    marginTop: 7,
+    marginRight: 12,
+  },
+  feedbackText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#525F7F',
+    lineHeight: 20,
+  },
+  closeBtn: {
+    alignSelf: 'center',
+    marginTop: 10,
+    padding: 10,
+  },
+  closeBtnText: {
+    fontSize: 13,
+    color: '#ADB5BD',
+    fontWeight: '600',
+  },
+  emptyState: {
+    marginTop: 20,
+    padding: 30,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: '#E9ECEF',
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: '#8898AA',
+    textAlign: 'center',
+  },
 });

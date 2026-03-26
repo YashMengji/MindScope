@@ -9,7 +9,9 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
   const icons = {
     Home: "home-outline",
     Features: "apps-outline",
-    Analytics: "stats-chart-outline",
+    ChatAnalytics: "chatbubble-ellipses-outline", // 1. Messaging
+    VoiceAnalytics: "call-outline",                  // 2. Phone call
+    // Analytics: "stats-chart-outline",
     Profile: "person-outline",
   };
 

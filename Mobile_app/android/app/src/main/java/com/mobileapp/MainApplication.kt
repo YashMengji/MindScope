@@ -3,6 +3,7 @@ package com.mobileapp
 import com.mobileapp.ChatAccessibilityPackage
 import com.mobileapp.CallRecordingPackage
 import com.mobileapp.ScreenControllerPackage
+import com.mobileapp.DigitalWellbeingPackage
 import android.app.Application
 import android.content.res.Configuration
 
@@ -31,6 +32,7 @@ class MainApplication : Application(), ReactApplication {
             packages.add(ChatAccessibilityPackage())
             packages.add(CallRecordingPackage())
             packages.add(ScreenControllerPackage())
+            packages.add(DigitalWellbeingPackage())
             return packages
           }
 
