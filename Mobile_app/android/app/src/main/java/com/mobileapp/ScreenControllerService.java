@@ -17,6 +17,10 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import java.util.HashMap;
 import java.util.Map;
+import com.facebook.react.bridge.Arguments;
+import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.bridge.WritableNativeMap; 
+import com.facebook.react.bridge.Promise;
 
 public class ScreenControllerService extends AccessibilityService {
     private static final String TAG = "ScreenControllerService";
@@ -77,6 +81,27 @@ public class ScreenControllerService extends AccessibilityService {
         sessionLimitMs = (long) prefs.getInt("sessionLimit_time", 10) * 60 * 1000;
         isCooldownEnabled = prefs.getBoolean("cooldown_enabled", false);
         cooldownDurationMs = (long) prefs.getInt("cooldown_time", 15) * 60 * 1000;
+    }
+
+    public void getServiceSettings(Promise promise) {
+        try {
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            WritableMap map = Arguments.createMap();
+            
+            // Match the keys you are using in ScreenControllerService.java
+            map.putBoolean("dailyLimit_enabled", prefs.getBoolean("dailyLimit_enabled", false));
+            map.putInt("dailyLimit_time", prefs.getInt("dailyLimit_time", 30));
+            
+            map.putBoolean("sessionLimit_enabled", prefs.getBoolean("sessionLimit_enabled", false));
+            map.putInt("sessionLimit_time", prefs.getInt("sessionLimit_time", 10));
+            
+            map.putBoolean("cooldown_enabled", prefs.getBoolean("cooldown_enabled", false));
+            map.putInt("cooldown_time", prefs.getInt("cooldown_time", 15));
+            
+            promise.resolve(map);
+        } catch (Exception e) {
+            promise.reject("ERR_SETTINGS", e.getMessage());
+        }
     }
 
     @Override

@@ -11,6 +11,11 @@ import com.facebook.react.bridge.ReactMethod;
 import android.content.SharedPreferences;
 import android.util.Log;
 
+import com.facebook.react.bridge.Arguments;
+import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.bridge.WritableNativeMap; 
+import com.facebook.react.bridge.Promise;
+
 /**
  * React Native Module to manage the Screen Controller Accessibility Service.
  */
@@ -43,6 +48,28 @@ public class ScreenControllerModule extends ReactContextBaseJavaModule {
         editor.apply(); 
         
         Log.d(TAG, String.format("ScreenController | Saved: %s Enabled: %b Time: %d", featureKey, enabled, timeInMins));
+    }
+
+    @ReactMethod
+    public void getServiceSettings(Promise promise) {
+        try {
+            SharedPreferences prefs = getReactApplicationContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            WritableMap map = Arguments.createMap();
+            
+            // Match the keys you are using in ScreenControllerService.java
+            map.putBoolean("dailyLimit_enabled", prefs.getBoolean("dailyLimit_enabled", false));
+            map.putInt("dailyLimit_time", prefs.getInt("dailyLimit_time", 30));
+            
+            map.putBoolean("sessionLimit_enabled", prefs.getBoolean("sessionLimit_enabled", false));
+            map.putInt("sessionLimit_time", prefs.getInt("sessionLimit_time", 10));
+            
+            map.putBoolean("cooldown_enabled", prefs.getBoolean("cooldown_enabled", false));
+            map.putInt("cooldown_time", prefs.getInt("cooldown_time", 15));
+            
+            promise.resolve(map);
+        } catch (Exception e) {
+            promise.reject("ERR_SETTINGS", e.getMessage());
+        }
     }
 
     /**

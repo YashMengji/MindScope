@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  section_blocker_config.xml
+  Place at: android/app/src/main/res/xml/section_blocker_config.xml
+
+  MIUI 12 / Android 10 compatible config.
+  - Uses numeric eventTypes to avoid MIUI XML parser bugs
+  - flagDefault is required on MIUI or the service silently receives nothing
+  - canRetrieveWindowContent + canRequestEnhancedWebAccessibility needed for
+    node traversal inside Instagram/YouTube on MIUI
+  - notificationTimeout 100ms is the minimum reliable polling interval
+  - No packageNames filter here — MIUI sometimes ignores it and the filter
+    is enforced in Java instead (safer)
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeAllMask"
+    android:accessibilityFeedbackType="feedbackAllMask"
+    android:accessibilityFlags="flagDefault|flagReportViewIds|flagRetrieveInteractiveWindows|flagRequestEnhancedWebAccessibility"
+    android:canRetrieveWindowContent="true"
+    android:canRequestEnhancedWebAccessibility="true"
+    android:canRequestFilterKeyEvents="false"
+    android:notificationTimeout="100"
+    android:description="@string/blocker_service_description" />

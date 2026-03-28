@@ -10,7 +10,7 @@
         "React Native (Expo)",
         "Express Server",
         "FastAPI Server",
-        // "ADB Logcat"
+        "ADB Logcat"
       ],
       "group": {
         "kind": "build",
@@ -23,7 +23,7 @@
       "type": "shell",
       "command": "adb reverse tcp:8081 tcp:8081",
       "options": {
-        "cwd": "C:\\Users\\hande\\Desktop\\MindScope"
+        "cwd": "C:\\Users\\hande\\Desktop\\MindScope\\Mobile_app"
       }
     },
     {
@@ -31,7 +31,7 @@
       "type": "shell",
       "command": "adb reverse tcp:8000 tcp:8000",
       "options": {
-        "cwd": "C:\\Users\\hande\\Desktop\\MindScope"
+        "cwd": "C:\\Users\\hande\\Desktop\\MindScope\\Mobile_app"
       }
     },
     {
@@ -39,7 +39,7 @@
       "type": "shell",
       "command": "adb reverse tcp:3000 tcp:3000",
       "options": {
-        "cwd": "C:\\Users\\hande\\Desktop\\MindScope"
+        "cwd": "C:\\Users\\hande\\Desktop\\MindScope\\Mobile_app"
       }
     },
     {
@@ -57,7 +57,7 @@
       "command": "npm start",
       "isBackground": true,
       "options": {
-        "cwd": "C:\\Users\\hande\\Desktop\\MindScope\\Server"
+        "cwd": "C:\\Users\\hande\\Desktop\\MindScope\\server"
       }
     },
     {
@@ -75,14 +75,101 @@
         "cwd": "C:\\Users\\hande\\Desktop\\MindScope\\AI_microservice"
       }
     },
-    // {
-    //   "label": "ADB Logcat",
-    //   "type": "shell",
-    //   "command": "adb logcat | ForEach-Object { if ($_ -like 'ChatAccessibilityService') { $_ } }",
-    //   "isBackground": true,
-    //   "options": {
-    //     "cwd": "C:\\Users\\hande\\Desktop\\MindScope\\Mobile_app"
-    //   }
-    // }
+    {
+      "label": "ADB Logcat",
+      "type": "shell",
+      "command": "adb logcat | ForEach-Object { if ($_ -like 'ChatAccessibilityService') { $_ } }",
+      "isBackground": true,
+      "options": {
+        "cwd": "C:\\Users\\hande\\Desktop\\MindScope\\Mobile_app"
+      }
+    }{
+      "version": "2.0.0",
+      "tasks": [
+        {
+          "label": "Start MindScope Dev Stack",
+          "dependsOn": [
+            "ADB Reverse 8081",
+            "ADB Reverse 8000",
+            "ADB Reverse 3000",
+            "React Native (Expo)",
+            "Express Server",
+            "FastAPI Server",
+            "ADB Logcat"
+          ],
+          "group": {
+            "kind": "build",
+            "isDefault": true
+          },
+          "problemMatcher": []
+        },
+        {
+          "label": "ADB Reverse 8081",
+          "type": "shell",
+          "command": "adb reverse tcp:8081 tcp:8081",
+          "options": {
+            "cwd": "C:\\Users\\hande\\Desktop\\MindScope\\Mobile_app"
+          }
+        },
+        {
+          "label": "ADB Reverse 8000",
+          "type": "shell",
+          "command": "adb reverse tcp:8000 tcp:8000",
+          "options": {
+            "cwd": "C:\\Users\\hande\\Desktop\\MindScope\\Mobile_app"
+          }
+        },
+        {
+          "label": "ADB Reverse 3000",
+          "type": "shell",
+          "command": "adb reverse tcp:3000 tcp:3000",
+          "options": {
+            "cwd": "C:\\Users\\hande\\Desktop\\MindScope\\Mobile_app"
+          }
+        },
+        {
+          "label": "React Native (Expo)",
+          "type": "shell",
+          "command": "npm start",
+          "isBackground": true,
+          "options": {
+            "cwd": "C:\\Users\\hande\\Desktop\\MindScope\\Mobile_app"
+          }
+        },
+        {
+          "label": "Express Server",
+          "type": "shell",
+          "command": "npm start",
+          "isBackground": true,
+          "options": {
+            "cwd": "C:\\Users\\Acer\\Desktop\\Major Project\\Server"
+          }
+        },
+        {
+          "label": "FastAPI Server",
+          "type": "shell",
+          "command": ".\\venv\\Scripts\\activate.bat && uvicorn main:app --reload --host 0.0.0.0 --port 8000",
+          "isBackground": true,
+          "options": {
+            "shell": {
+              "executable": "cmd.exe",
+              "args": [
+                "/C"
+              ]
+            },
+            "cwd": "C:\\Users\\Acer\\Desktop\\Major Project\\AI_microservice"
+          }
+        },
+        {
+          "label": "ADB Logcat",
+          "type": "shell",
+          "command": "adb logcat | ForEach-Object { if ($_ -like 'ChatAccessibilityService') { $_ } }",
+          "isBackground": true,
+          "options": {
+            "cwd": "C:\\Users\\hande\\Desktop\\MindScope\\Mobile_app"
+          }
+        }
+      ]
+    }
   ]
 }

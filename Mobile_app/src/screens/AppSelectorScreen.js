@@ -8,6 +8,7 @@ import {
   Image
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { Ionicons } from "@expo/vector-icons";
 
 const AppSelectorScreen = ({navigation}) => {
   const apps = [
@@ -28,9 +29,9 @@ const AppSelectorScreen = ({navigation}) => {
     console.log('Info pressed');
   };
 
-  const handleSetTimerPress = () => {
+  const handleSetTimerPress = (name) => {
     // Set timer action - to be implemented later
-    navigation.navigate("ScreenTimeSettingsScreen");
+    navigation.navigate("ScreenTimeSettingsScreen", {appName: name});
     console.log('Set timer pressed');
   };
 
@@ -38,7 +39,7 @@ const AppSelectorScreen = ({navigation}) => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Icon style={styles.backArrowIcon} name="arrow-back-ios-new" size={24} color="#717171" onPress={() => navigation.goBack()}/>
+        <Ionicons onPress={() => navigation.goBack()} style={styles.backArrowIcon}  name="chevron-back" size={22} color="#9CA3AF" />
   
         <View style={styles.headerText}>
             <Text style={styles.headerTitle}>Screen Time Controller</Text>
@@ -68,7 +69,7 @@ const AppSelectorScreen = ({navigation}) => {
             
             <View style={styles.timerControls}>
               <TouchableOpacity 
-                onPress={handleSetTimerPress}
+                onPress={() => handleSetTimerPress(app.name)}
                 style={styles.setTimerButton}
               >
                 <Text style={styles.setTimerText}>Set timer</Text>
@@ -100,20 +101,20 @@ const styles = StyleSheet.create({
   },
   backArrowIcon: {
     padding: 6,
-    backgroundColor: "#cee4ff",
+    backgroundColor: "#e6f1ff",
     borderRadius: 50,
     display: "flex",
     alignContent: "center",
     justifyContent: "center"
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#000000',
-    marginBottom: 4,
+    marginBottom: 1,
   },
   headerSubtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#666666',
     fontWeight: '500',
   },

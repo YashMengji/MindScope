@@ -1,14 +1,10 @@
 import React from "react";
-import { View } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-// import { useSafeAreaInsets } from "react-native-safe-area-context"; // No longer needed here
 
-// Import the custom component
 import CustomTabBar from "./CustomTabBar";
 
-// Import Screens
 import LandingScreen from "../screens/LandingScreen";
 import LoginScreen from "../screens/LoginScreen";
 import SignUpScreen from "../screens/SignUpScreen";
@@ -19,44 +15,42 @@ import ProfileScreen from "../screens/ProfileScreen";
 import VoiceAnalysisScreen from "../screens/VoiceAnalysisScreen";
 import AppSelectorScreen from "../screens/AppSelectorScreen";
 import ScreenTimeSettingsScreen from "../screens/ScreenTimeSettingsScreen";
+import SectionBlockerScreen from "../screens/SectionBlockerScreen";
+
+// NOTE: No JS overlay here. The blocker overlay is drawn entirely
+// by AccessibilityBlockerService.java using TYPE_APPLICATION_OVERLAY
+// (native WindowManager), which works on MIUI and all Android phones.
 
 const Stack = createStackNavigator();
-const Tab = createBottomTabNavigator();
+const Tab   = createBottomTabNavigator();
 
-// Wrapper component for tab navigator
 function MainAppTabs() {
-  // Removed the wrapping View with padding. 
-  // The TabBar is now floating, so screens take full height.
   return (
     <Tab.Navigator
       tabBar={(props) => <CustomTabBar {...props} />}
-      screenOptions={{
-        headerShown: false,
-      }}
+      screenOptions={{ headerShown: false }}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Features" component={FeaturesScreen} />
-      <Tab.Screen name="ChatAnalytics" component={AnalyticsScreen} />
-      <Tab.Screen name="VoiceAnalytics" component={VoiceAnalysisScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="Home"            component={HomeScreen} />
+      <Tab.Screen name="Features"        component={FeaturesScreen} />
+      <Tab.Screen name="Chat Analytics"  component={AnalyticsScreen} />
+      <Tab.Screen name="Voice Analytics" component={VoiceAnalysisScreen} />
+      <Tab.Screen name="Profile"         component={ProfileScreen} />
     </Tab.Navigator>
   );
 }
 
-// This navigator handles the initial authentication flow
 const AppNavigator = () => {
   return (
     <NavigationContainer>
       <Stack.Navigator
         initialRouteName="MainApp"
-        screenOptions={{
-          headerShown: false,
-        }}
+        screenOptions={{ headerShown: false }}
       >
         <Stack.Screen name="Landing" component={LandingScreen} />
         <Stack.Screen name="MainApp" component={MainAppTabs} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="SignUp" component={SignUpScreen} />
+        <Stack.Screen name="SectionBlocker" component={SectionBlockerScreen} />
         <Stack.Screen name="AppSelectorScreen" component={AppSelectorScreen} />
         <Stack.Screen name="ScreenTimeSettingsScreen" component={ScreenTimeSettingsScreen} />
       </Stack.Navigator>

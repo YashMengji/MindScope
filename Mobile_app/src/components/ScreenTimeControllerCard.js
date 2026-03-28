@@ -6,6 +6,7 @@ import {
   TouchableOpacity
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { Ionicons } from "@expo/vector-icons";
 
 const ScreenTimeControllerCard = ({ onPress }) => {
   return (
@@ -20,7 +21,7 @@ const ScreenTimeControllerCard = ({ onPress }) => {
           <Text style={styles.title}>Screen Time Controller</Text>
           <Text style={styles.subtitle}>App specific timer</Text>
         </View>
-        <Icon name="arrow-forward-ios" size={24} color="#999999" />
+        <Ionicons name="chevron-forward" size={22} color="#9CA3AF" />
       </View>
     </TouchableOpacity>
   );
@@ -28,9 +29,9 @@ const ScreenTimeControllerCard = ({ onPress }) => {
 
 const styles = StyleSheet.create({
   container: {
+    marginBottom: 16,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderColor: "#000",
+    borderRadius: 20,
     // marginHorizontal: 16,
     // marginVertical: 8,
     paddingVertical: 20,
@@ -47,7 +48,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 10
+    gap: 16
   },
   textContainer: {
     flex: 1,
@@ -56,11 +57,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#000000',
-    marginBottom: 4,
+    // marginBottom: 2,
   },
   subtitle: {
     fontSize: 13,
-    color: '#666666',
+    // color: '#666666',
+    color: '#9CA3AF',
     fontWeight: '400',
   },
 });

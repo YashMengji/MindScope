@@ -13,11 +13,11 @@ import {
   Linking,
   Platform,
   ScrollView,
-  AppState, 
+  AppState,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useContext, useCallback,useRef, useEffect } from "react";
+import { useContext, useCallback, useRef, useEffect } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { FA5Style } from "@expo/vector-icons/build/FontAwesome5";
 import ScreenTimeControllerCard from "../components/ScreenTimeControllerCard";
@@ -46,7 +46,7 @@ const TimeSelector = ({ value, onChange }) => {
           <Text style={styles.customizeText}>customize</Text>
         </TouchableOpacity>
       </View>
-      
+
       <View style={styles.timeOptionsGrid}>
         {TIME_OPTIONS.map((time) => (
           <TouchableOpacity
@@ -83,7 +83,7 @@ const SubFeatureCard = ({ title, value, onValueChange, timeValue, onTimeChange, 
           value={value}
         />
       </View>
-      
+
       {value && showTime && (
         <TimeSelector value={timeValue} onChange={onTimeChange} />
       )}
@@ -92,13 +92,13 @@ const SubFeatureCard = ({ title, value, onValueChange, timeValue, onTimeChange, 
 };
 
 // --- Main Feature Card Component ---
-const FeatureCard = ({ 
-  iconName, 
-  title, 
-  value, 
-  onValueChange, 
+const FeatureCard = ({
+  iconName,
+  title,
+  value,
+  onValueChange,
   expanded,
-  children 
+  children
 }) => {
   return (
     <View style={styles.card}>
@@ -112,7 +112,7 @@ const FeatureCard = ({
           value={value}
         />
       </View>
-      
+
       {expanded && value && (
         <View style={styles.expandedContent}>
           {children}
@@ -124,7 +124,7 @@ const FeatureCard = ({
 
 
 // --- Main Screen Component ---
-const FeaturesScreen = ({navigation}) => {
+const FeaturesScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user } = useContext(AuthContext);
   const appState = useRef(AppState.currentState);
@@ -147,7 +147,7 @@ const FeaturesScreen = ({navigation}) => {
     if (Platform.OS !== 'android' || !ChatAccessibility || !ChatAccessibility.isServiceEnabled) return;
     try {
       const isEnabled = await ChatAccessibility.isServiceEnabled();
-      console.log("Chat accessibility service status : ",isEnabled);
+      console.log("Chat accessibility service status : ", isEnabled);
       setChatAnalysisEnabled(isEnabled);
     } catch (error) {
       console.error("Failed to check Chat status:", error);
@@ -168,9 +168,9 @@ const FeaturesScreen = ({navigation}) => {
           "To enable Chat Analysis, you must manually turn on the service on the next screen.",
           [
             { text: "Cancel", style: "cancel" },
-            { 
-              text: "Go to Settings", 
-              onPress: () => ChatAccessibility.openAccessibilitySettings() 
+            {
+              text: "Go to Settings",
+              onPress: () => ChatAccessibility.openAccessibilitySettings()
             },
           ]
         );
@@ -198,9 +198,9 @@ const FeaturesScreen = ({navigation}) => {
         await CallAnalysis.setVoiceFeatureEnabled(false);
       }
       setIsVoiceCallPermissionEnabled(false);
-      
+
       Alert.alert(
-        "Feature Deactivated & Permissions", 
+        "Feature Deactivated & Permissions",
         "Voice Analysis is OFF. To fully deny Microphone and Phone access, you must manually revoke them in App Settings.",
         [
           { text: "Cancel", style: "cancel" },
@@ -221,7 +221,7 @@ const FeaturesScreen = ({navigation}) => {
     const recordGranted = results[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] === PermissionsAndroid.RESULTS.GRANTED;
     const writeStorageGranted = results[PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE] === PermissionsAndroid.RESULTS.GRANTED;
     const readStorageGranted = results[PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE] === PermissionsAndroid.RESULTS.GRANTED;
-    
+
     const allGranted = readGranted && recordGranted && writeStorageGranted && readStorageGranted;
 
     if (allGranted) {
@@ -233,7 +233,7 @@ const FeaturesScreen = ({navigation}) => {
     } else {
       const neverAskRead = results[PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE] === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN;
       const neverAskRecord = results[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN;
-      
+
       if (neverAskRead || neverAskRecord) {
         Alert.alert(
           "Permissions Permanently Denied",
@@ -246,7 +246,7 @@ const FeaturesScreen = ({navigation}) => {
       } else {
         Alert.alert("Permission Denied", "Voice analysis cannot run without both Phone State and Microphone access.");
       }
-      
+
       setIsVoiceCallPermissionEnabled(false);
     }
   };
@@ -266,12 +266,12 @@ const FeaturesScreen = ({navigation}) => {
 
   const checkScreenControllerStatus = useCallback(async () => {
     if (Platform.OS !== 'android' || !ScreenController || !ScreenController.isServiceEnabled) return;
-    
+
     try {
       const isEnabled = await ScreenController.isServiceEnabled();
       console.log("Screen controller status : ", isEnabled);
       setIsScreenControllerEnabled(isEnabled);
-      
+
       // Optional: If enabled, sync current sub-feature states to ensure Java is up to date
       if (isEnabled) {
         Object.keys(screenUsageControllerSubFeature).forEach(featureKey => {
@@ -291,21 +291,21 @@ const FeaturesScreen = ({navigation}) => {
       try {
         // Call the native method to check if the Accessibility Service is active
         const isEnabled = await ScreenController.isServiceEnabled();
-        
+
         if (!isEnabled) {
           // If not enabled, show the system alert and STOP the toggle from turning on
           Alert.alert(
             "Permission Required",
             "Screen Controller requires Accessibility permissions to track app usage and enforce limits.",
             [
-              { 
-                text: "Cancel", 
-                onPress: () => setIsScreenControllerEnabled(false), 
-                style: "cancel" 
+              {
+                text: "Cancel",
+                onPress: () => setIsScreenControllerEnabled(false),
+                style: "cancel"
               },
-              { 
-                text: "Open Settings", 
-                onPress: () => ScreenController.openAccessibilitySettings() 
+              {
+                text: "Open Settings",
+                onPress: () => ScreenController.openAccessibilitySettings()
               }
             ]
           );
@@ -318,7 +318,7 @@ const FeaturesScreen = ({navigation}) => {
     }
 
     setIsScreenControllerEnabled(newValue);
-    
+
     // If the Master Switch is turned OFF, we tell the Native Service 
     // to disable all individual restrictions.
     if (!newValue) {
@@ -365,7 +365,7 @@ const FeaturesScreen = ({navigation}) => {
 
   const updateScreenUsageControllerFeature = (feature, enabled, time) => {
     const newTime = time || screenUsageControllerSubFeature[feature].time;
-    
+
     setScreenUsageControllerSubFeature((prev) => ({
       ...prev,
       [feature]: { enabled, time: newTime },
@@ -403,7 +403,7 @@ const FeaturesScreen = ({navigation}) => {
     const subscription = AppState.addEventListener('change', nextAppState => {
       // Condition: App was in background (Settings) and is now 'active' (User returned)
       if (
-        appState.current.match(/inactive|background/) && 
+        appState.current.match(/inactive|background/) &&
         nextAppState === 'active'
       ) {
         console.log("Returned from Settings. Re-checking permissions...");
@@ -418,7 +418,7 @@ const FeaturesScreen = ({navigation}) => {
       subscription.remove();
     };
   }, [checkAllServicesStatus]);
-  
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -475,30 +475,56 @@ const FeaturesScreen = ({navigation}) => {
           expanded={isScreenControllerEnabled}
         >
           <SubFeatureCard
-              title="Daily limit"
-              value={screenUsageControllerSubFeature.dailyLimit.enabled}
-              onValueChange={(val) => updateScreenUsageControllerFeature('dailyLimit', val)}
-              timeValue={screenUsageControllerSubFeature.dailyLimit.time}
-              onTimeChange={(time) => updateScreenUsageControllerFeature('dailyLimit', true, time)}
+            title="Daily limit"
+            value={screenUsageControllerSubFeature.dailyLimit.enabled}
+            onValueChange={(val) => updateScreenUsageControllerFeature('dailyLimit', val)}
+            timeValue={screenUsageControllerSubFeature.dailyLimit.time}
+            onTimeChange={(time) => updateScreenUsageControllerFeature('dailyLimit', true, time)}
+            showTime={true}
+          />
+          <SubFeatureCard
+            title="Session limit"
+            value={screenUsageControllerSubFeature.sessionLimit.enabled}
+            onValueChange={(val) => updateScreenUsageControllerFeature('sessionLimit', val)}
+            timeValue={screenUsageControllerSubFeature.sessionLimit.time}
+            onTimeChange={(time) => updateScreenUsageControllerFeature('sessionLimit', true, time)}
+            showTime={true}
+          />
+          <SubFeatureCard
+            title="Cooldown period"
+            value={screenUsageControllerSubFeature.cooldown.enabled}
+            onValueChange={(val) => updateScreenUsageControllerFeature('cooldown', val)}
+            timeValue={screenUsageControllerSubFeature.cooldown.time}
+            onTimeChange={(time) => updateScreenUsageControllerFeature('cooldown', true, time)}
+            showTime={true}
+          />
+          {/* <SubFeatureCard
+              title="Warning overlay"
+              value={screenUsageControllerSubFeature.warningOverlay.enabled}
+              onValueChange={(val) => updateScreenUsageControllerFeature('warningOverlay', val)}
+              timeValue={screenUsageControllerSubFeature.warningOverlay.time}
+              onTimeChange={(time) => updateScreenUsageControllerFeature('warningOverlay', true, time)}
               showTime={true}
-            />
-            <SubFeatureCard
-              title="Session limit"
-              value={screenUsageControllerSubFeature.sessionLimit.enabled}
-              onValueChange={(val) => updateScreenUsageControllerFeature('sessionLimit', val)}
-              timeValue={screenUsageControllerSubFeature.sessionLimit.time}
-              onTimeChange={(time) => updateScreenUsageControllerFeature('sessionLimit', true, time)}
-              showTime={true}
-            />
-            <SubFeatureCard
-              title="Cooldown period"
-              value={screenUsageControllerSubFeature.cooldown.enabled}
-              onValueChange={(val) => updateScreenUsageControllerFeature('cooldown', val)}
-              timeValue={screenUsageControllerSubFeature.cooldown.time}
-              onTimeChange={(time) => updateScreenUsageControllerFeature('cooldown', true, time)}
-              showTime={true}
-            />
-          </FeatureCard> */}
+            /> 
+        </FeatureCard>*/}
+        
+        {/* Section Blocker */}
+        <TouchableOpacity
+          style={styles.card}
+          activeOpacity={0.82}
+          onPress={() => navigation.navigate('SectionBlocker')}
+        >
+          <View style={styles.mainFeatureRow}>
+            <Ionicons name="ban-outline" size={32} color="#0A2E5B" />
+            <View style={{ flex: 1, marginLeft: 16 }}>
+              <Text style={styles.sectionBlockerCardTitle}>Section Blocker</Text>
+              <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>
+                Block Reels, Shorts, Stories & more
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color="#9CA3AF" />
+          </View>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -544,7 +570,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
   },
   featuresContainer: {
-    flex: 1,
+    // flex: 1,
     marginTop: 20,
     paddingHorizontal: 20,
     gap: 20
@@ -552,8 +578,8 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
-    padding: 20,
-    // marginBottom: 16,
+    padding: 18,
+    marginBottom: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -567,6 +593,12 @@ const styles = StyleSheet.create({
   cardTitle: {
     flex: 1,
     marginLeft: 16,
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#0A2E5B",
+  },
+  sectionBlockerCardTitle: {
+    flex: 1,
     fontSize: 16,
     fontWeight: "600",
     color: "#0A2E5B",
