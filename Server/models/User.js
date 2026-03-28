@@ -13,10 +13,14 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  chatInferences: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "ChatInference",
-  }]
+  isChatInferenceEnabled: {
+    type: Boolean,
+    default: false,
+  },
+  isVoiceInferenceEnabled: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 export default mongoose.model("User", userSchema);

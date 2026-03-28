@@ -16,8 +16,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
-
+});  
+//test
 export default function App() {
   console.log("This is log from app.js");
 
