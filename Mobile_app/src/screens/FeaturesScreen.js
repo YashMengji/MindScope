@@ -21,6 +21,10 @@ import { useContext, useCallback, useRef, useEffect } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { FA5Style } from "@expo/vector-icons/build/FontAwesome5";
 import ScreenTimeControllerCard from "../components/ScreenTimeControllerCard";
+import NativeCallRecordingService from '../bridge/NativeCallRecordingService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+
 
 // Define Native Modules
 const { ChatAccessibility, CallAnalysis, ScreenController } = NativeModules;
@@ -124,10 +128,40 @@ const FeatureCard = ({
 
 
 // --- Main Screen Component ---
-const FeaturesScreen = ({ navigation }) => {
+const FeaturesScreen = ({ navigation, selectedDirectory, setSelectedDirectory }) => {
   const insets = useSafeAreaInsets();
   const { user } = useContext(AuthContext);
   const appState = useRef(AppState.currentState);
+  const [nativeAvailable, setNativeAvailable] = useState(false);
+
+
+  // State for directory selection
+  const DIRECTORY_KEY = '@HealthSync:recordingDirectory';
+
+
+  useEffect(() => {
+    const init = async () => {
+      // 1. Check Native Module Availability
+      const available = NativeCallRecordingService.isAvailable();
+      setNativeAvailable(available);
+
+      // 2. Load Saved Directory
+      await loadSavedDirectory();
+    };
+
+    init();
+  }, []);
+
+  const loadSavedDirectory = async () => {
+    try {
+      const savedDir = await AsyncStorage.getItem(DIRECTORY_KEY);
+      if (savedDir) {
+        setSelectedDirectory(savedDir);
+      }
+    } catch (error) {
+      console.error('Failed to load directory pref:', error);
+    }
+  };
 
   // Main toggles
   const [chatAnalysisEnabled, setChatAnalysisEnabled] = useState(false);
@@ -428,6 +462,27 @@ const FeaturesScreen = ({ navigation }) => {
     );
   }
 
+  // --- Handle Directory Selection ---
+  const handleSelectDirectory = async () => {
+    try {
+      const uriString = await NativeCallRecordingService.requestRecordingFolderAccess();
+
+      if (uriString) {
+        setSelectedDirectory(uriString);
+        await AsyncStorage.setItem(DIRECTORY_KEY, uriString);
+
+        Alert.alert(
+          'Directory Selected',
+          'HealthSync now has permission to access recordings in this folder.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Directory selection error:', error);
+      Alert.alert('Error', 'Failed to select directory: ' + error.message);
+    }
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
@@ -449,10 +504,33 @@ const FeaturesScreen = ({ navigation }) => {
         {/* Chat Message Analysis */}
         <FeatureCard
           iconName="chatbubble-ellipses-outline"
-          title="Chat message analysis"
+          title="Chat & Voice message analysis"
           value={chatAnalysisEnabled}
           onValueChange={handleChatToggle}
           expanded={chatAnalysisEnabled}
+          children={
+            nativeAvailable && (
+              <View style={styles.setupCard}>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={handleSelectDirectory}
+                >
+                  <Text style={styles.actionButtonText}>
+                    Select Call Recording Directory
+                  </Text>
+                </TouchableOpacity>
+
+                {selectedDirectory && (
+                  <View style={styles.pathContainer}>
+                    <Text style={styles.pathLabel}>Selected Directory:</Text>
+                    <Text style={styles.pathText} numberOfLines={2}>
+                      {decodeURIComponent(selectedDirectory)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )
+          }
         />
 
         {/* Voice Call Analysis */}
@@ -465,7 +543,7 @@ const FeaturesScreen = ({ navigation }) => {
         /> */}
 
         {/* Screen Usage Controller */}
-        <ScreenTimeControllerCard onPress={() => {navigation.navigate('AppSelectorScreen');}}/>
+        <ScreenTimeControllerCard onPress={() => { navigation.navigate('AppSelectorScreen'); }} />
 
         {/* <FeatureCard
           iconName="chatbubble-ellipses-outline"
@@ -507,7 +585,7 @@ const FeaturesScreen = ({ navigation }) => {
               showTime={true}
             /> 
         </FeatureCard>*/}
-        
+
         {/* Section Blocker */}
         <TouchableOpacity
           style={styles.card}
@@ -585,6 +663,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 10,
     elevation: 1,
+    flexDirection: "column",
   },
   mainFeatureRow: {
     flexDirection: "row",
@@ -673,6 +752,45 @@ const styles = StyleSheet.create({
   timeOptionTextSelected: {
     color: "#FFFFFF",
   },
+
+  /* Setup Card */
+  setupCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  actionButton: {
+    backgroundColor: "#2196F3",
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  actionButtonText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  pathContainer: {
+    marginTop: 15,
+    padding: 10,
+    backgroundColor: "#F0F4F8",
+    borderRadius: 8,
+  },
+  pathLabel: {
+    fontSize: 12,
+    color: "#666",
+    marginBottom: 4,
+  },
+  pathText: {
+    fontSize: 13,
+    color: "#333",
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+
 });
 
 export default FeaturesScreen;

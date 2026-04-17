@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   SafeAreaView,
   Image,
   ScrollView,
+  RefreshControl, // <-- Add this
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useContext } from "react";
@@ -91,24 +92,24 @@ const AnalyticsScreen = () => {
   };
 
   // Fetch chat data on mount
-  useEffect(() => {
-    const fetchChatData = async () => {
-      try {
-        console.log("Fetching chat data for user:", user?._id);
-        const response = await getChat("6903301b93ef8bdb5a368a28");
-        console.log("Chat data response:", response);
+  const fetchChatData = async () => {
+    try {
+      console.log("Fetching chat data for user:", user?._id);
+      const response = await getChat("6903301b93ef8bdb5a368a28");
+      console.log("Chat data response:", response);
 
-        if (response && response.chats) {
-          setChats(response.chats);
-          const processedData = processChatData(response.chats);
-          setToxicityData(processedData);
-        }
-      } catch (error) {
-        console.error("Error fetching chat data:", error);
-        // Set fallback data
-        setToxicityData(processChatData([]));
+      if (response && response.chats) {
+        setChats(response.chats);
+        const processedData = processChatData(response.chats);
+        setToxicityData(processedData);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching chat data:", error);
+      // Set fallback data
+      setToxicityData(processChatData([]));
+    }
+  };
+  useEffect(() => {
 
     // if (user?._id) {
     //   console.log("User ID available, fetching chat data.");
@@ -116,6 +117,16 @@ const AnalyticsScreen = () => {
     // }
     fetchChatData();
   }, []);
+
+  // --- ADD THESE LINES ---
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchChatData(); // Calls your existing fetch method
+    setRefreshing(false);
+  }, []);
+  // -----------------------
 
   const chartConfig = {
     backgroundColor: '#ffffff',
@@ -139,36 +150,36 @@ const AnalyticsScreen = () => {
 
   // Calculate statistics
   const totalChats = chats.length;
-  const avgToxicity = totalChats > 0 
+  const avgToxicity = totalChats > 0
     ? (chats.reduce((sum, chat) => sum + chat.toxicityScore, 0) / totalChats).toFixed(3)
     : "0.000";
   const safeChats = chats.filter(chat => chat.toxicityScore < 0.3).length;
-  const safeChatsPercentage = totalChats > 0 
+  const safeChatsPercentage = totalChats > 0
     ? ((safeChats / totalChats) * 100).toFixed(1)
     : "0.0";
 
   const defaultToxicityData = {
-        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-        datasets: [{
-            data: [0.2, 0.4, 0.3, 0.1, 0.5, 0.2, 0.3],
-            color: (opacity = 1) => `rgba(255, 59, 48, ${opacity})`,
-            strokeWidth: 2,
-        }],
-    };
+    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    datasets: [{
+      data: [0.2, 0.4, 0.3, 0.1, 0.5, 0.2, 0.3],
+      color: (opacity = 1) => `rgba(255, 59, 48, ${opacity})`,
+      strokeWidth: 2,
+    }],
+  };
 
-    // Feedback messages for each data point
-    const feedbackMessages = [
-        "You could have controlled your anger. Try taking a deep breath before responding.",
-        "Your response showed improvement in managing frustration.",
-        "Consider using more positive language to express your concerns.",
-        "Good job managing your tone! Keep up the constructive communication.",
-        "Some responses were harsh. Try framing feedback more gently.",
-        "You handled the difficult conversation well.",
-        "Be mindful of sarcasm - it can sometimes escalate tensions."
-    ];
+  // Feedback messages for each data point
+  const feedbackMessages = [
+    "You could have controlled your anger. Try taking a deep breath before responding.",
+    "Your response showed improvement in managing frustration.",
+    "Consider using more positive language to express your concerns.",
+    "Good job managing your tone! Keep up the constructive communication.",
+    "Some responses were harsh. Try framing feedback more gently.",
+    "You handled the difficult conversation well.",
+    "Be mindful of sarcasm - it can sometimes escalate tensions."
+  ];
 
-    const dayLabels = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    const totalRecords = defaultToxicityData.datasets[0].data.length;
+  const dayLabels = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const totalRecords = defaultToxicityData.datasets[0].data.length;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -187,10 +198,20 @@ const AnalyticsScreen = () => {
       </View>
 
       {/* Main Content */}
-      <ScrollView 
+      <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        // --- ADD THIS PROP ---
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={["#0A2E5B"]} // Android spinner color
+            tintColor={"#0A2E5B"} // iOS spinner color
+          />
+        }
+      // ---------------------
       >
         {/* Toxicity Trend Chart */}
         <ToxicityChart title="Chat text toxicity" data={chats} />

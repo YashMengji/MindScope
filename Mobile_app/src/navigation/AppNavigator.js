@@ -16,25 +16,49 @@ import VoiceAnalysisScreen from "../screens/VoiceAnalysisScreen";
 import AppSelectorScreen from "../screens/AppSelectorScreen";
 import ScreenTimeSettingsScreen from "../screens/ScreenTimeSettingsScreen";
 import SectionBlockerScreen from "../screens/SectionBlockerScreen";
+import { useState } from "react";
 
 // NOTE: No JS overlay here. The blocker overlay is drawn entirely
 // by AccessibilityBlockerService.java using TYPE_APPLICATION_OVERLAY
 // (native WindowManager), which works on MIUI and all Android phones.
 
 const Stack = createStackNavigator();
-const Tab   = createBottomTabNavigator();
+const Tab = createBottomTabNavigator();
 
 function MainAppTabs() {
+  const [selectedDirectory, setSelectedDirectory] = useState(null);
+
   return (
     <Tab.Navigator
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
-      <Tab.Screen name="Home"            component={HomeScreen} />
-      <Tab.Screen name="Features"        component={FeaturesScreen} />
-      <Tab.Screen name="Chat Analytics"  component={AnalyticsScreen} />
-      <Tab.Screen name="Voice Analytics" component={VoiceAnalysisScreen} />
-      <Tab.Screen name="Profile"         component={ProfileScreen} />
+      <Tab.Screen name="Home" component={HomeScreen} />
+
+      {/* 3. Pass the state and the setter as props using children pattern or initialParams */}
+      <Tab.Screen name="Features">
+        {(props) => (
+          <FeaturesScreen
+            {...props}
+            selectedDirectory={selectedDirectory}
+            setSelectedDirectory={setSelectedDirectory}
+          />
+        )}
+      </Tab.Screen>
+
+      <Tab.Screen name="Chat Analytics" component={AnalyticsScreen} />
+
+      <Tab.Screen name="Voice Analytics">
+        {(props) => (
+          <VoiceAnalysisScreen
+            {...props}
+            selectedDirectory={selectedDirectory}
+            setSelectedDirectory={setSelectedDirectory}
+          />
+        )}
+      </Tab.Screen>
+
+      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }
