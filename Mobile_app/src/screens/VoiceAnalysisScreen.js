@@ -15,21 +15,25 @@ import NativeCallRecordingService from '../bridge/NativeCallRecordingService';
 import { analyzeVoiceRecording, uploadBatchRecordings, saveInferenceResult, fetchRecordingByName, fetchVoiceInferencePerUser } from '../services/VoiceRecordingService'; 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import VoiceToxicityChart from '../components/VoiceToxicityChart';
+import DateSelector from '../components/DateSelector';
 
 const VoiceAnalysisScreen = ({ selectedDirectory, setSelectedDirectory }) => {
   const insets = useSafeAreaInsets();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [refreshing, setRefreshing] = useState(false); // Replaces isUploading
   const [voiceInferences, setVoiceInferences] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
+  // Fetch whenever the selected date changes (the change is only committed
+  // when the user taps "Done" in the date selector).
   useEffect(() => {
     const fetchData = async () => {
-      const { data } = await fetchVoiceInferencePerUser();
+      const { data } = await fetchVoiceInferencePerUser(selectedDate);
       setVoiceInferences(data?.data || null);
     };
-  
+
     fetchData();
-  }, []);
+  }, [selectedDate]);
 
   const uploadToServer = async (results) => {
     for (const result of results) {
@@ -39,7 +43,7 @@ const VoiceAnalysisScreen = ({ selectedDirectory, setSelectedDirectory }) => {
 
       if (fileExist.success !== true && result.status === 'uploaded') {
         await saveInferenceResult(result);
-        const { data } = await fetchVoiceInferencePerUser();
+        const { data } = await fetchVoiceInferencePerUser(selectedDate);
         setVoiceInferences(data?.data || null);
       }
     }
@@ -62,7 +66,7 @@ const VoiceAnalysisScreen = ({ selectedDirectory, setSelectedDirectory }) => {
       }
 
       // 2. Always fetch the latest data from the backend to refresh the chart
-      const { data } = await fetchVoiceInferencePerUser();
+      const { data } = await fetchVoiceInferencePerUser(selectedDate);
       setVoiceInferences(data?.data || null);
 
     } catch (error) {
@@ -70,7 +74,7 @@ const VoiceAnalysisScreen = ({ selectedDirectory, setSelectedDirectory }) => {
     } finally {
       setRefreshing(false);
     }
-  }, [selectedDirectory]);
+  }, [selectedDirectory, selectedDate]);
 
 
   return (
@@ -93,6 +97,12 @@ const VoiceAnalysisScreen = ({ selectedDirectory, setSelectedDirectory }) => {
           />
         }
       >
+        {/* Date Selector — fetch fires only when "Done" is pressed */}
+        <DateSelector
+          selectedDate={selectedDate}
+          onConfirm={(date) => setSelectedDate(date)}
+        />
+
         <VoiceToxicityChart title="Voice call toxicity" data={voiceInferences} />
         
         {/* Analysis Loading State */}

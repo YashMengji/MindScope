@@ -3,7 +3,8 @@ import { LineChart } from "react-native-chart-kit"
 import { useState, useMemo } from "react";
 import { Circle, G } from 'react-native-svg';
 
-export default function ToxicityChart({ title, data }) {
+
+export default function ToxicityChart({ title, data, selectedDate, setSelectedDate }) {
     console.log("Chat data (toxicity chart component) : ", data);
 
     const screenWidth = Dimensions.get('window').width;

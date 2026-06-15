@@ -128,15 +128,19 @@ export const fetchRecordingByName = async (fileName) => {
   }
 }
 
-export const fetchVoiceInferencePerUser = async () => {
+export const fetchVoiceInferencePerUser = async (selectedDate) => {
   try {
     const token = await getToken();
     // console.log("Token retrieved in service:", token);
 
     const userId = "6903301b93ef8bdb5a368a28"; // Replace with dynamic user ID if needed
-    const selectedDate = new Date().toISOString().split('T')[0]; 
+    // Normalize to a local YYYY-MM-DD; default to today when no date is provided
+    const dateParam =
+      selectedDate instanceof Date
+        ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`
+        : selectedDate || new Date().toISOString().split("T")[0];
     const response = await api.get(
-      `/voice/${userId}/${selectedDate}`,
+      `/voice/${userId}/${dateParam}`,
       {
         headers: {
           Authorization: `Bearer ${token}`,

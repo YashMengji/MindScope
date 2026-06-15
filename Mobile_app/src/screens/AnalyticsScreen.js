@@ -16,12 +16,14 @@ import { Dimensions } from 'react-native';
 import { getChat } from "../services/chatInferenceService";
 import ToxicityChart from "../components/ToxicityChart";
 import VoiceToxicityChart from '../components/VoiceToxicityChart';
+import DateSelector from "../components/DateSelector";
 
 const AnalyticsScreen = () => {
   const insets = useSafeAreaInsets();
   const { user } = useContext(AuthContext);
   const [chats, setChats] = useState([]);
   const [toxicityData, setToxicityData] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const screenWidth = Dimensions.get('window').width;
 
   // Process chat data for chart
@@ -92,10 +94,10 @@ const AnalyticsScreen = () => {
   };
 
   // Fetch chat data on mount
-  const fetchChatData = async () => {
+  const fetchChatData = async (selectedDate) => {
     try {
       console.log("Fetching chat data for user:", user?._id);
-      const response = await getChat("6903301b93ef8bdb5a368a28");
+      const response = await getChat("6903301b93ef8bdb5a368a28", selectedDate);
       console.log("Chat data response:", response);
 
       if (response && response.chats) {
@@ -115,17 +117,17 @@ const AnalyticsScreen = () => {
     //   console.log("User ID available, fetching chat data.");
     //   fetchChatData();
     // }
-    fetchChatData();
-  }, []);
+    fetchChatData(selectedDate);
+  }, [selectedDate]);
 
   // --- ADD THESE LINES ---
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchChatData(); // Calls your existing fetch method
+    await fetchChatData(selectedDate); // Refresh data for the currently selected date
     setRefreshing(false);
-  }, []);
+  }, [selectedDate]);
   // -----------------------
 
   const chartConfig = {
@@ -213,8 +215,14 @@ const AnalyticsScreen = () => {
         }
       // ---------------------
       >
+        {/* Date Selector — fetch fires only when "Done" is pressed */}
+        <DateSelector
+          selectedDate={selectedDate}
+          onConfirm={(date) => setSelectedDate(date)}
+        />
+
         {/* Toxicity Trend Chart */}
-        <ToxicityChart title="Chat text toxicity" data={chats} />
+        <ToxicityChart title="Chat text toxicity" data={chats} selectedDate={selectedDate} setSelectedDate={setSelectedDate} />
 
         {/* Statistics Overview */}
         <View style={styles.statsContainer}>

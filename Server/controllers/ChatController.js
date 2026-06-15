@@ -32,23 +32,25 @@ export const getChatByUserId = async (req, res) => {
   try {
     // const userId = req.params.userId;
     const userId = new mongoose.Types.ObjectId("6903301b93ef8bdb5a368a28");
-    console.log("Is user id null (controller):", userId);
+    const selectedDate = req.params.selectedDate;
+
     console.log("User ID received in (controller):", userId);
-    // Get the start and end of the current day
-    const startOfDay = new Date();
+    console.log("Selected date received in (controller):", selectedDate);
+
+    // Get the start and end of the selected day
+    const startOfDay = new Date(selectedDate);
     startOfDay.setHours(0, 0, 0, 0); // Set time to 00:00:00.000
 
-    const endOfDay = new Date();
+    const endOfDay = new Date(selectedDate);
     endOfDay.setHours(23, 59, 59, 999); // Set time to 23:59:59.999
 
     console.log("Start of Day:", startOfDay);
     console.log("End of Day:", endOfDay);
 
-    // Query to find chats within today's range
+    // Query to find chats whose inference was created on the selected day
     const chats = await ChatInference.find({
       userId: userId,
-      startTimestamp: { $gte: startOfDay },
-      endTimestamp: { $lt: endOfDay },
+      createdAt: { $gte: startOfDay, $lt: endOfDay },
     }).sort({ startTimestamp: 1 }); // 1 for ascending order
     res.status(200).json({ chats });
   } catch (error) {

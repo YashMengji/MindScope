@@ -50,7 +50,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 TOXICITY_THRESHOLD = 0.5 
 
 # GLOBAL VARIABLE FOR THE CORRECT MODEL NAME
-CURRENT_MODEL_NAME = "gemini-1.5-flash-001" # Default fallback
+CURRENT_MODEL_NAME = "models/gemini-2.5-flash" # Default fallback (multimodal: text + audio)
 
 # --------------------------------------------------------------------------
 # GLOBAL RESOURCES & MODEL AUTO-DISCOVERY
@@ -69,12 +69,12 @@ def load_resources():
         logger.info("🔎 Connecting to Google to find available models...")
         available_models = [m.name for m in genai.list_models()]
         
-        # Priority list: Look for these models in order
+        # Priority list: Look for these models in order (newest first).
+        # All are multimodal (text + audio) and free-tier eligible.
         priority_models = [
-            "models/gemini-1.5-flash",
-            "models/gemini-1.5-flash-001",
-            "models/gemini-1.5-flash-latest",
-            "models/gemini-pro"
+            "models/gemini-3-flash",        # newest, if available to this key
+            "models/gemini-2.5-flash",      # reliable free-tier multimodal default
+            "models/gemini-2.5-flash-lite", # cheapest free-tier fallback
         ]
         
         found = False
@@ -263,8 +263,8 @@ def analyze_toxicity(messages: List[str]):
     """
     
     try:
-        # Call Gemini
-        model = genai.GenerativeModel("gemini-2.5-flash")
+        # Call Gemini (shares the auto-discovered model with the audio endpoint)
+        model = genai.GenerativeModel(CURRENT_MODEL_NAME)
         response = model.generate_content(prompt)
         
         # Extract JSON from response
