@@ -1,49 +1,73 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image
+  ActivityIndicator,
+  Platform,
+  NativeModules,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { Ionicons } from "@expo/vector-icons";
 
-const AppSelectorScreen = ({navigation}) => {
-  const apps = [
-    {
-      id: 1,
-      name: 'YouTube',
-      icon: 'https://cdn-icons-png.flaticon.com/512/1384/1384060.png'
-    },
-    {
-      id: 2,
-      name: 'Instagram',
-      icon: 'https://cdn-icons-png.flaticon.com/512/2111/2111463.png'
-    }
-  ];
+const { DigitalWellbeingModule } = NativeModules;
+
+const FALLBACK_APPS = [
+  { name: 'YouTube', packageName: 'com.google.android.youtube' },
+  { name: 'Instagram', packageName: 'com.instagram.android' },
+];
+
+const AppSelectorScreen = ({ navigation }) => {
+  const [apps, setApps] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadApps = async () => {
+      if (Platform.OS !== 'android' || !DigitalWellbeingModule?.getAppUsageStats) {
+        setApps(FALLBACK_APPS);
+        setLoading(false);
+        return;
+      }
+      try {
+        const data = await DigitalWellbeingModule.getAppUsageStats('daily');
+        const systemAppNames = ['System UI', 'Android System', 'Launcher', 'Quickstep'];
+        const realApps = (data.apps || [])
+          .filter((app) => !systemAppNames.includes(app.name) && app.usage >= 1)
+          .sort((a, b) => b.usage - a.usage)
+          .map((app) => ({ name: app.name, packageName: app.packageName }));
+        setApps(realApps.length ? realApps : FALLBACK_APPS);
+      } catch (e) {
+        console.error('Failed to load apps:', e);
+        setApps(FALLBACK_APPS);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadApps();
+  }, []);
 
   const handleInfoPress = () => {
-    // Info action - to be implemented later
     console.log('Info pressed');
   };
 
-  const handleSetTimerPress = (name) => {
-    // Set timer action - to be implemented later
-    navigation.navigate("ScreenTimeSettingsScreen", {appName: name});
-    console.log('Set timer pressed');
+  const handleSetTimerPress = (app) => {
+    navigation.navigate("ScreenTimeSettingsScreen", {
+      appName: app.name,
+      packageName: app.packageName,
+    });
   };
 
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Ionicons onPress={() => navigation.goBack()} style={styles.backArrowIcon}  name="chevron-back" size={22} color="#9CA3AF" />
-  
+        <Ionicons onPress={() => navigation.goBack()} style={styles.backArrowIcon} name="chevron-back" size={22} color="#9CA3AF" />
+
         <View style={styles.headerText}>
-            <Text style={styles.headerTitle}>Screen Time Controller</Text>
-            <Text style={styles.headerSubtitle}>App specific timer</Text>
+          <Text style={styles.headerTitle}>Screen Time Controller</Text>
+          <Text style={styles.headerSubtitle}>App specific timer</Text>
         </View>
       </View>
 
@@ -56,28 +80,37 @@ const AppSelectorScreen = ({navigation}) => {
       </View>
 
       {/* App List */}
-      <ScrollView style={styles.appListContainer}>
-        {apps.map((app) => (
-          <View key={app.id} style={styles.appItem}>
-            <View style={styles.appInfo}>
-              <Image 
-                source={{ uri: app.icon }} 
-                style={styles.appIcon}
-              />
-              <Text style={styles.appName}>{app.name}</Text>
-            </View>
-            
-            <View style={styles.timerControls}>
-              <TouchableOpacity 
-                onPress={() => handleSetTimerPress(app.name)}
-                style={styles.setTimerButton}
-              >
-                <Text style={styles.setTimerText}>Set timer</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ))}
-      </ScrollView>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4A90E2" />
+          <Text style={styles.loadingText}>Loading your apps...</Text>
+        </View>
+      ) : (
+        <ScrollView style={styles.appListContainer}>
+          {apps.map((app, index) => {
+            const initial = (app.name || '?').charAt(0).toUpperCase();
+            return (
+              <View key={app.packageName || index} style={styles.appItem}>
+                <View style={styles.appInfo}>
+                  <View style={styles.appAvatar}>
+                    <Text style={styles.appAvatarText}>{initial}</Text>
+                  </View>
+                  <Text style={styles.appName} numberOfLines={1}>{app.name}</Text>
+                </View>
+
+                <View style={styles.timerControls}>
+                  <TouchableOpacity
+                    onPress={() => handleSetTimerPress(app)}
+                    style={styles.setTimerButton}
+                  >
+                    <Text style={styles.setTimerText}>Set timer</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
+          })}
+        </ScrollView>
+      )}
     </View>
   );
 };
@@ -121,7 +154,6 @@ const styles = StyleSheet.create({
   descriptionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    // justifyContent: 'space-between',
     gap: 10,
     paddingHorizontal: 20,
     paddingVertical: 16,
@@ -136,6 +168,16 @@ const styles = StyleSheet.create({
   },
   infoIcon: {
     padding: 4,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666',
   },
   appListContainer: {
     flex: 1,
@@ -156,13 +198,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  appIcon: {
+  appAvatar: {
     width: 40,
     height: 40,
     borderRadius: 8,
     marginRight: 12,
+    backgroundColor: '#E8F1FC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  appAvatarText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#4A90E2',
   },
   appName: {
+    flex: 1,
     fontSize: 16,
     fontWeight: '500',
     color: '#000000',

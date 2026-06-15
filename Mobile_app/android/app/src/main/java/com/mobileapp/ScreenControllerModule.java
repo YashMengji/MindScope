@@ -10,6 +10,8 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import android.content.SharedPreferences;
 import android.util.Log;
+import java.util.HashSet;
+import java.util.Set;
 
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.WritableMap;
@@ -34,38 +36,52 @@ public class ScreenControllerModule extends ReactContextBaseJavaModule {
         return "ScreenController";
     }
 
+    private static final String MONITORED_PACKAGES_KEY = "monitored_packages";
+
     // --- THIS IS THE FUNCTION YOUR UI CALLS ---
+    // Settings are stored per package, e.g. "com.google.android.youtube_dailyLimit_time".
     @ReactMethod
-    public void updateServiceSettings(String featureKey, boolean enabled, int timeInMins) {
+    public void updateServiceSettings(String packageName, String featureKey, boolean enabled, int timeInMins) {
         SharedPreferences prefs = getReactApplicationContext()
                 .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        
+
         SharedPreferences.Editor editor = prefs.edit();
+        String prefix = packageName + "_";
         // Save the state (enabled/disabled)
-        editor.putBoolean(featureKey + "_enabled", enabled);
+        editor.putBoolean(prefix + featureKey + "_enabled", enabled);
         // Save the duration (minutes)
-        editor.putInt(featureKey + "_time", timeInMins);
-        editor.apply(); 
-        
-        Log.d(TAG, String.format("ScreenController | Saved: %s Enabled: %b Time: %d", featureKey, enabled, timeInMins));
+        editor.putInt(prefix + featureKey + "_time", timeInMins);
+
+        // Track which packages have any limit configured so the service knows what to watch.
+        Set<String> monitored = new HashSet<>(
+                prefs.getStringSet(MONITORED_PACKAGES_KEY, new HashSet<String>()));
+        if (enabled) {
+            monitored.add(packageName);
+        }
+        editor.putStringSet(MONITORED_PACKAGES_KEY, monitored);
+        editor.apply();
+
+        Log.d(TAG, String.format("ScreenController | %s | Saved: %s Enabled: %b Time: %d",
+                packageName, featureKey, enabled, timeInMins));
     }
 
     @ReactMethod
-    public void getServiceSettings(Promise promise) {
+    public void getServiceSettings(String packageName, Promise promise) {
         try {
             SharedPreferences prefs = getReactApplicationContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
             WritableMap map = Arguments.createMap();
-            
-            // Match the keys you are using in ScreenControllerService.java
-            map.putBoolean("dailyLimit_enabled", prefs.getBoolean("dailyLimit_enabled", false));
-            map.putInt("dailyLimit_time", prefs.getInt("dailyLimit_time", 30));
-            
-            map.putBoolean("sessionLimit_enabled", prefs.getBoolean("sessionLimit_enabled", false));
-            map.putInt("sessionLimit_time", prefs.getInt("sessionLimit_time", 10));
-            
-            map.putBoolean("cooldown_enabled", prefs.getBoolean("cooldown_enabled", false));
-            map.putInt("cooldown_time", prefs.getInt("cooldown_time", 15));
-            
+            String prefix = packageName + "_";
+
+            // Match the per-package keys written above / read in ScreenControllerService.java
+            map.putBoolean("dailyLimit_enabled", prefs.getBoolean(prefix + "dailyLimit_enabled", false));
+            map.putInt("dailyLimit_time", prefs.getInt(prefix + "dailyLimit_time", 30));
+
+            map.putBoolean("sessionLimit_enabled", prefs.getBoolean(prefix + "sessionLimit_enabled", false));
+            map.putInt("sessionLimit_time", prefs.getInt(prefix + "sessionLimit_time", 10));
+
+            map.putBoolean("cooldown_enabled", prefs.getBoolean(prefix + "cooldown_enabled", false));
+            map.putInt("cooldown_time", prefs.getInt(prefix + "cooldown_time", 15));
+
             promise.resolve(map);
         } catch (Exception e) {
             promise.reject("ERR_SETTINGS", e.getMessage());

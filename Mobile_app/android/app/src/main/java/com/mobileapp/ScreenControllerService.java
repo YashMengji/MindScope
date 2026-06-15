@@ -3,6 +3,8 @@ package com.mobileapp;
 import android.accessibilityservice.AccessibilityService;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.os.Handler;
@@ -16,36 +18,38 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
-import com.facebook.react.bridge.Arguments;
-import com.facebook.react.bridge.WritableMap;
-import com.facebook.react.bridge.WritableNativeMap; 
-import com.facebook.react.bridge.Promise;
+import java.util.Set;
 
 public class ScreenControllerService extends AccessibilityService {
     private static final String TAG = "ScreenControllerService";
     private static final String PREFS_NAME = "ScreenPrefs";
-    private static final String TARGET_PACKAGE = "com.google.android.youtube";
+    private static final String MONITORED_PACKAGES_KEY = "monitored_packages";
+    private static final String LEGACY_PACKAGE = "com.google.android.youtube";
 
-    private long dailyLimitMs = 30 * 60 * 1000;
-    private long sessionLimitMs = 10 * 60 * 1000;
-    private long cooldownDurationMs = 15 * 60 * 1000;
+    // The set of packages with at least one limit enabled (loaded from prefs).
+    private Set<String> monitoredPackages = new HashSet<>();
 
-    private boolean isTimeLimitEnabled = false;
-    private boolean isSessionLimitEnabled = false;
-    private boolean isCooldownEnabled = false;
+    // Per-package settings (loaded from prefs for whichever apps are monitored).
+    private final Map<String, Boolean> dailyLimitEnabled = new HashMap<>();
+    private final Map<String, Boolean> sessionLimitEnabled = new HashMap<>();
+    private final Map<String, Boolean> cooldownEnabled = new HashMap<>();
+    private final Map<String, Long> dailyLimitMs = new HashMap<>();
+    private final Map<String, Long> sessionLimitMs = new HashMap<>();
+    private final Map<String, Long> cooldownDurationMs = new HashMap<>();
 
+    // Per-package runtime tracking.
     private final Map<String, Long> dailyUsage = new HashMap<>();
     private final Map<String, Long> sessionStartTime = new HashMap<>();
     private final Map<String, Long> lastUsedTime = new HashMap<>();
-    
+    private final Map<String, Long> cooldownActiveUntil = new HashMap<>();
+    private final Map<String, Boolean> dailyWarningShown = new HashMap<>();
+    private final Map<String, Boolean> sessionWarningShown = new HashMap<>();
+
     private String currentPackage = "";
     private long startTime = 0;
     private long lastClosedTimestamp = 0;
-    private long cooldownActiveUntil = 0; // Tracks when cooldown expires
-
-    private boolean dailyWarningShown = false;
-    private boolean sessionWarningShown = false;
 
     private WindowManager windowManager;
     private View overlayView;
@@ -57,7 +61,7 @@ public class ScreenControllerService extends AccessibilityService {
     private final Runnable usageTicker = new Runnable() {
         @Override
         public void run() {
-            if (currentPackage.equals(TARGET_PACKAGE)) {
+            if (isMonitored(currentPackage)) {
                 updateTimers();
                 checkAllLimits();
                 handler.postDelayed(this, 1000);
@@ -69,38 +73,55 @@ public class ScreenControllerService extends AccessibilityService {
     protected void onServiceConnected() {
         super.onServiceConnected();
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+        migrateLegacySettingsIfNeeded();
         refreshSettings();
-        Log.d(TAG, "ScreenControllerService Connected.");
+        Log.d(TAG, "ScreenControllerService Connected. Monitoring: " + monitoredPackages);
     }
 
+    private boolean isMonitored(String pkg) {
+        return pkg != null && monitoredPackages.contains(pkg);
+    }
+
+    // One-time migration: older builds stored a single global YouTube-only config.
+    private void migrateLegacySettingsIfNeeded() {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        Set<String> monitored = prefs.getStringSet(MONITORED_PACKAGES_KEY, null);
+        boolean hasLegacy = prefs.contains("dailyLimit_enabled")
+                || prefs.contains("sessionLimit_enabled")
+                || prefs.contains("cooldown_enabled");
+
+        if ((monitored == null || monitored.isEmpty()) && hasLegacy) {
+            String p = LEGACY_PACKAGE + "_";
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.putBoolean(p + "dailyLimit_enabled", prefs.getBoolean("dailyLimit_enabled", false));
+            editor.putInt(p + "dailyLimit_time", prefs.getInt("dailyLimit_time", 30));
+            editor.putBoolean(p + "sessionLimit_enabled", prefs.getBoolean("sessionLimit_enabled", false));
+            editor.putInt(p + "sessionLimit_time", prefs.getInt("sessionLimit_time", 10));
+            editor.putBoolean(p + "cooldown_enabled", prefs.getBoolean("cooldown_enabled", false));
+            editor.putInt(p + "cooldown_time", prefs.getInt("cooldown_time", 15));
+
+            Set<String> migrated = new HashSet<>();
+            migrated.add(LEGACY_PACKAGE);
+            editor.putStringSet(MONITORED_PACKAGES_KEY, migrated);
+            editor.apply();
+            Log.d(TAG, "Migrated legacy global limits to per-package keys for " + LEGACY_PACKAGE);
+        }
+    }
+
+    // Reloads the monitored set and each monitored package's settings from prefs.
     private void refreshSettings() {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        isTimeLimitEnabled = prefs.getBoolean("dailyLimit_enabled", false);
-        dailyLimitMs = (long) prefs.getInt("dailyLimit_time", 30) * 60 * 1000;
-        isSessionLimitEnabled = prefs.getBoolean("sessionLimit_enabled", false);
-        sessionLimitMs = (long) prefs.getInt("sessionLimit_time", 10) * 60 * 1000;
-        isCooldownEnabled = prefs.getBoolean("cooldown_enabled", false);
-        cooldownDurationMs = (long) prefs.getInt("cooldown_time", 15) * 60 * 1000;
-    }
+        monitoredPackages = new HashSet<>(
+                prefs.getStringSet(MONITORED_PACKAGES_KEY, new HashSet<String>()));
 
-    public void getServiceSettings(Promise promise) {
-        try {
-            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-            WritableMap map = Arguments.createMap();
-            
-            // Match the keys you are using in ScreenControllerService.java
-            map.putBoolean("dailyLimit_enabled", prefs.getBoolean("dailyLimit_enabled", false));
-            map.putInt("dailyLimit_time", prefs.getInt("dailyLimit_time", 30));
-            
-            map.putBoolean("sessionLimit_enabled", prefs.getBoolean("sessionLimit_enabled", false));
-            map.putInt("sessionLimit_time", prefs.getInt("sessionLimit_time", 10));
-            
-            map.putBoolean("cooldown_enabled", prefs.getBoolean("cooldown_enabled", false));
-            map.putInt("cooldown_time", prefs.getInt("cooldown_time", 15));
-            
-            promise.resolve(map);
-        } catch (Exception e) {
-            promise.reject("ERR_SETTINGS", e.getMessage());
+        for (String pkg : monitoredPackages) {
+            String p = pkg + "_";
+            dailyLimitEnabled.put(pkg, prefs.getBoolean(p + "dailyLimit_enabled", false));
+            dailyLimitMs.put(pkg, (long) prefs.getInt(p + "dailyLimit_time", 30) * 60 * 1000);
+            sessionLimitEnabled.put(pkg, prefs.getBoolean(p + "sessionLimit_enabled", false));
+            sessionLimitMs.put(pkg, (long) prefs.getInt(p + "sessionLimit_time", 10) * 60 * 1000);
+            cooldownEnabled.put(pkg, prefs.getBoolean(p + "cooldown_enabled", false));
+            cooldownDurationMs.put(pkg, (long) prefs.getInt(p + "cooldown_time", 15) * 60 * 1000);
         }
     }
 
@@ -113,81 +134,104 @@ public class ScreenControllerService extends AccessibilityService {
 
             String newPackage = pkg.toString();
 
-            // Prevent self-triggering exit logic
+            // Prevent self-triggering exit logic while our own overlay is showing.
             if ((isOverlayShowing || isWarningShowing) && newPackage.equals(getPackageName())) {
                 return;
             }
 
-            if (!newPackage.equals(TARGET_PACKAGE) && currentPackage.equals(TARGET_PACKAGE)) {
+            // Leaving a monitored app: bank its usage, stop its ticker, clear overlays.
+            if (!newPackage.equals(currentPackage) && isMonitored(currentPackage)) {
                 updateTimers();
-                lastUsedTime.put(TARGET_PACKAGE, System.currentTimeMillis());
+                lastUsedTime.put(currentPackage, System.currentTimeMillis());
                 handler.removeCallbacks(usageTicker);
                 removeOverlay();
                 removeWarning();
             }
 
-            if (newPackage.equals(TARGET_PACKAGE)) {
-                if (System.currentTimeMillis() - lastClosedTimestamp < 2000) return; 
+            // Entering a monitored app: enforce its own limits.
+            if (isMonitored(newPackage)) {
+                if (System.currentTimeMillis() - lastClosedTimestamp < 2000) {
+                    currentPackage = newPackage;
+                    return;
+                }
 
-                // 1. Check if Cooldown is currently active
-                if (isCooldownEnabled && System.currentTimeMillis() < cooldownActiveUntil) {
+                // 1. Check if this app's cooldown is currently active.
+                if (cooldownEnabled.getOrDefault(newPackage, false)
+                        && System.currentTimeMillis() < cooldownActiveUntil.getOrDefault(newPackage, 0L)) {
+                    currentPackage = newPackage;
                     showBlocker("Cooldown period has not yet expired!");
                     return;
                 }
 
                 if (!newPackage.equals(currentPackage)) {
                     startTime = System.currentTimeMillis();
-                    long lastExit = lastUsedTime.getOrDefault(TARGET_PACKAGE, 0L);
-                    if (startTime - lastExit > cooldownDurationMs) {
-                        sessionStartTime.put(TARGET_PACKAGE, startTime);
-                        sessionWarningShown = false; // Reset session warning for new session
+                    long lastExit = lastUsedTime.getOrDefault(newPackage, 0L);
+                    long cooldown = cooldownDurationMs.getOrDefault(newPackage, 0L);
+                    if (startTime - lastExit > cooldown) {
+                        sessionStartTime.put(newPackage, startTime);
+                        sessionWarningShown.put(newPackage, false);
                     }
+                    currentPackage = newPackage;
                     handler.post(usageTicker);
                 }
-                checkAllLimits(); 
+                checkAllLimits();
             }
             currentPackage = newPackage;
         }
     }
 
     private void updateTimers() {
-        if (startTime == 0 || !currentPackage.equals(TARGET_PACKAGE)) return;
+        if (startTime == 0 || !isMonitored(currentPackage)) return;
         long now = System.currentTimeMillis();
         long elapsed = now - startTime;
-        dailyUsage.put(TARGET_PACKAGE, dailyUsage.getOrDefault(TARGET_PACKAGE, 0L) + elapsed);
+        dailyUsage.put(currentPackage, dailyUsage.getOrDefault(currentPackage, 0L) + elapsed);
         startTime = now;
     }
 
     private void checkAllLimits() {
-        if (!currentPackage.equals(TARGET_PACKAGE)) return;
+        if (!isMonitored(currentPackage)) return;
         long now = System.currentTimeMillis();
-        
+        String pkg = currentPackage;
+
         // --- Daily Limit Logic ---
-        if (isTimeLimitEnabled) {
-            long totalDaily = dailyUsage.getOrDefault(TARGET_PACKAGE, 0L);
-            if (totalDaily >= dailyLimitMs) {
-                showBlocker("Daily limit reached for Youtube");
+        if (dailyLimitEnabled.getOrDefault(pkg, false)) {
+            long limit = dailyLimitMs.getOrDefault(pkg, 0L);
+            long totalDaily = dailyUsage.getOrDefault(pkg, 0L);
+            if (totalDaily >= limit) {
+                showBlocker("Daily limit reached for " + getAppLabel(pkg));
                 return;
-            } else if (!dailyWarningShown && totalDaily >= (dailyLimitMs * 0.75)) {
-                dailyWarningShown = true;
+            } else if (!dailyWarningShown.getOrDefault(pkg, false) && totalDaily >= (limit * 0.75)) {
+                dailyWarningShown.put(pkg, true);
                 showWarning("You have used 75% of your daily limit.");
             }
         }
 
         // --- Session Limit Logic ---
-        if (isSessionLimitEnabled) {
-            long sessionStart = sessionStartTime.getOrDefault(TARGET_PACKAGE, now);
+        if (sessionLimitEnabled.getOrDefault(pkg, false)) {
+            long limit = sessionLimitMs.getOrDefault(pkg, 0L);
+            long sessionStart = sessionStartTime.getOrDefault(pkg, now);
             long sessionElapsed = now - sessionStart;
-            if (sessionElapsed >= sessionLimitMs) {
-                if (isCooldownEnabled) {
-                    cooldownActiveUntil = System.currentTimeMillis() + cooldownDurationMs;
+            if (sessionElapsed >= limit) {
+                if (cooldownEnabled.getOrDefault(pkg, false)) {
+                    cooldownActiveUntil.put(pkg,
+                            System.currentTimeMillis() + cooldownDurationMs.getOrDefault(pkg, 0L));
                 }
                 showBlocker("Session limit reached! Cooldown started.");
                 return;
-            } else if (!sessionWarningShown && sessionElapsed >= (sessionLimitMs * 0.75)) {
-                sessionWarningShown = true;
+            } else if (!sessionWarningShown.getOrDefault(pkg, false) && sessionElapsed >= (limit * 0.75)) {
+                sessionWarningShown.put(pkg, true);
                 showWarning("You have used 75% of your session limit.");
             }
+        }
+    }
+
+    private String getAppLabel(String packageName) {
+        try {
+            PackageManager pm = getPackageManager();
+            ApplicationInfo info = pm.getApplicationInfo(packageName, 0);
+            return pm.getApplicationLabel(info).toString();
+        } catch (Exception e) {
+            return "this app";
         }
     }
 
@@ -197,22 +241,29 @@ public class ScreenControllerService extends AccessibilityService {
 
         handler.post(() -> {
             WindowManager.LayoutParams params = createLayoutParams();
-            LinearLayout layout = createBaseLayout("#FB000000");
+            LinearLayout root = createOverlayRoot();
+            LinearLayout card = createCard();
 
-            TextView text = createTextView(message);
-            layout.addView(text);
+            addIcon(card, "⛔");
+            addVerticalSpace(card, 16);
+            addBadge(card, "TIME LIMIT REACHED", Color.rgb(252, 165, 165));
+            addVerticalSpace(card, 10);
+            addMessage(card, message);
+            addVerticalSpace(card, 32);
 
-            Button closeBtn = createButton("Close App", "#E53935");
+            Button closeBtn = createPillButton("Close App", Color.rgb(239, 68, 68));
             closeBtn.setOnClickListener(v -> {
-                lastClosedTimestamp = System.currentTimeMillis(); 
+                lastClosedTimestamp = System.currentTimeMillis();
                 performGlobalAction(GLOBAL_ACTION_HOME);
                 removeOverlay();
             });
-            layout.addView(closeBtn);
+            card.addView(closeBtn);
+
+            root.addView(card);
 
             try {
-                windowManager.addView(layout, params);
-                overlayView = layout;
+                windowManager.addView(root, params);
+                overlayView = root;
                 isOverlayShowing = true;
             } catch (Exception e) { Log.e(TAG, "Blocker Error: " + e.getMessage()); }
         });
@@ -223,18 +274,25 @@ public class ScreenControllerService extends AccessibilityService {
 
         handler.post(() -> {
             WindowManager.LayoutParams params = createLayoutParams();
-            LinearLayout layout = createBaseLayout("#CC000000"); // Slightly more transparent
+            LinearLayout root = createOverlayRoot();
+            LinearLayout card = createCard();
 
-            TextView text = createTextView("WARNING\n" + message);
-            layout.addView(text);
+            addIcon(card, "⏳");
+            addVerticalSpace(card, 16);
+            addBadge(card, "HEADS UP", Color.rgb(253, 224, 71));
+            addVerticalSpace(card, 10);
+            addMessage(card, message);
+            addVerticalSpace(card, 32);
 
-            Button okBtn = createButton("OK", "#4CAF50");
+            Button okBtn = createPillButton("Got it", Color.rgb(99, 102, 241));
             okBtn.setOnClickListener(v -> removeWarning());
-            layout.addView(okBtn);
+            card.addView(okBtn);
+
+            root.addView(card);
 
             try {
-                windowManager.addView(layout, params);
-                warningView = layout;
+                windowManager.addView(root, params);
+                warningView = root;
                 isWarningShowing = true;
             } catch (Exception e) { Log.e(TAG, "Warning Error: " + e.getMessage()); }
         });
@@ -245,36 +303,83 @@ public class ScreenControllerService extends AccessibilityService {
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | 
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL |
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN |
                 WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 PixelFormat.TRANSLUCENT);
     }
 
-    private LinearLayout createBaseLayout(String bgColor) {
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setGravity(Gravity.CENTER);
-        layout.setBackgroundColor(Color.parseColor(bgColor));
-        return layout;
+    // ── Modern card overlay (matches Section Blocker styling) ─────────────────
+
+    private LinearLayout createOverlayRoot() {
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setGravity(Gravity.CENTER);
+        root.setBackgroundColor(Color.argb(220, 10, 10, 30));
+        root.setPadding(48, 48, 48, 48);
+        return root;
     }
 
-    private TextView createTextView(String textStr) {
-        TextView text = new TextView(this);
-        text.setText(textStr);
-        text.setTextColor(Color.WHITE);
-        text.setTextSize(22);
-        text.setGravity(Gravity.CENTER);
-        text.setPadding(60, 20, 60, 40);
-        return text;
+    private LinearLayout createCard() {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setGravity(Gravity.CENTER);
+        android.graphics.drawable.GradientDrawable cardBg = new android.graphics.drawable.GradientDrawable();
+        cardBg.setColor(Color.argb(210, 20, 20, 55));
+        cardBg.setCornerRadius(56f);
+        cardBg.setStroke(2, Color.argb(80, 160, 160, 255));
+        card.setBackground(cardBg);
+        card.setPadding(64, 72, 64, 56);
+        return card;
     }
 
-    private Button createButton(String text, String color) {
+    private void addIcon(LinearLayout card, String emoji) {
+        TextView icon = new TextView(this);
+        icon.setText(emoji);
+        icon.setTextSize(40f);
+        icon.setGravity(Gravity.CENTER);
+        card.addView(icon);
+    }
+
+    private void addBadge(LinearLayout card, String label, int color) {
+        TextView badge = new TextView(this);
+        badge.setText(label);
+        badge.setTextColor(color);
+        badge.setTextSize(11f);
+        badge.setTypeface(null, android.graphics.Typeface.BOLD);
+        badge.setGravity(Gravity.CENTER);
+        card.addView(badge);
+    }
+
+    private void addMessage(LinearLayout card, String message) {
+        TextView msg = new TextView(this);
+        msg.setText(message);
+        msg.setTextColor(Color.WHITE);
+        msg.setTextSize(16f);
+        msg.setTypeface(null, android.graphics.Typeface.BOLD);
+        msg.setGravity(Gravity.CENTER);
+        card.addView(msg);
+    }
+
+    private Button createPillButton(String text, int color) {
         Button btn = new Button(this);
         btn.setText(text);
-        btn.setBackgroundColor(Color.parseColor(color));
         btn.setTextColor(Color.WHITE);
+        btn.setAllCaps(false);
+        android.graphics.drawable.GradientDrawable btnBg = new android.graphics.drawable.GradientDrawable();
+        btnBg.setColor(color);
+        btnBg.setCornerRadius(32f);
+        btn.setBackground(btnBg);
         return btn;
+    }
+
+    private void addVerticalSpace(LinearLayout parent, int dp) {
+        View space = new View(this);
+        float density = getResources().getDisplayMetrics().density;
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, (int) (dp * density));
+        space.setLayoutParams(p);
+        parent.addView(space);
     }
 
     private void removeOverlay() {

@@ -83,154 +83,85 @@ const ScreenTimeSettingsScreen = ({ navigation }) => {
 
   const appState = useRef(AppState.currentState);
   const route = useRoute();
-  const { appName } = route.params;
+  const { appName, packageName } = route.params;
   const [screenUsageControllerSubFeature, setScreenUsageControllerSubFeature] = useState({
       dailyLimit: { enabled: false, time: 30 },
       sessionLimit: { enabled: false, time: 10 },
       cooldown: { enabled: false, time: 15 }
     });
 
-  // UI only - no logic
   const handleBackPress = () => {
-    // Navigation handled by parent
     if (navigation) {
       navigation.goBack();
     }
   };
 
-  // NEW: Function to fetch current settings from Java SharedPreferences
+  // Fetch this app's saved limits from Java SharedPreferences (keyed by packageName).
   const fetchSettingsFromNative = useCallback(async () => {
-    if (Platform.OS !== 'android' || !ScreenController?.getServiceSettings) return;
+    if (Platform.OS !== 'android' || !ScreenController?.getServiceSettings || !packageName) return;
 
     try {
-      // We expect the native module to return a JSON string or Object
-      const settings = await ScreenController.getServiceSettings();
-      console.log(settings);
+      const settings = await ScreenController.getServiceSettings(packageName);
       if (settings) {
-        console.log("Settings fetched from native:", settings);
         setScreenUsageControllerSubFeature({
-          dailyLimit: { 
-            enabled: settings.dailyLimit_enabled || false, 
-            time: settings.dailyLimit_time || 30 
+          dailyLimit: {
+            enabled: settings.dailyLimit_enabled || false,
+            time: settings.dailyLimit_time || 30,
           },
-          sessionLimit: { 
-            enabled: settings.sessionLimit_enabled || false, 
-            time: settings.sessionLimit_time || 10 
+          sessionLimit: {
+            enabled: settings.sessionLimit_enabled || false,
+            time: settings.sessionLimit_time || 10,
           },
-          cooldown: { 
-            enabled: settings.cooldown_enabled || false, 
-            time: settings.cooldown_time || 15 
-          }
+          cooldown: {
+            enabled: settings.cooldown_enabled || false,
+            time: settings.cooldown_time || 15,
+          },
         });
       }
     } catch (e) {
       console.error("Failed to fetch settings:", e);
     }
-  }, []);
+  }, [packageName]);
 
+  // Load on mount and again whenever the user returns from system settings.
   useEffect(() => {
-    // Fetch settings as soon as the screen is mounted
     fetchSettingsFromNative();
-  // }, [fetchSettingsFromNative]);
-  },[]);
 
-  useEffect(() => {
-      const syncServiceState = async () => {
-        if (Platform.OS === 'android') {
-          const isRunning = await ScreenController.isServiceEnabled();
-          // If the service was turned off in system settings, turn off our UI toggle
-          if (!isRunning && isMainEnabled) {
-            setIsScreenControllerEnabled(false);
-          }
-        }
-      };
-  
-      syncServiceState();
-    }, []);
-
-    const checkAllServicesStatus = useCallback(async () => {
-        setLoading(true);
-        try {
-          // Check all services (Screen, Chat, Voice)
-          // The Promise.all makes them run in parallel
-          await Promise.all([
-            checkScreenControllerStatus()
-          ]);
-          console.log("All settings synced from Android System");
-        } catch (error) {
-          console.error("Failed to sync service statuses:", error);
-        } finally {
-          setLoading(false);
-        }
-    }, [checkScreenControllerStatus]);
-
-    useEffect(() => {
-        // A. Initial check on mount
-        checkAllServicesStatus();
-    
-        // B. Setup the Listener
-        const subscription = AppState.addEventListener('change', nextAppState => {
-          // Condition: App was in background (Settings) and is now 'active' (User returned)
-          if (
-            appState.current.match(/inactive|background/) &&
-            nextAppState === 'active'
-          ) {
-            console.log("Returned from Settings. Re-checking permissions...");
-            checkAllServicesStatus();
-          }
-    
-          // Update the ref to the current state
-          appState.current = nextAppState;
-        });
-        // C. Cleanup listener on unmount
-        return () => {
-          subscription.remove();
-        };
-    }, [checkAllServicesStatus]);
-
-    const checkScreenControllerStatus = useCallback(async () => {
-        if (Platform.OS !== 'android' || !ScreenController || !ScreenController.isServiceEnabled) return;
-    
-        try {
-          const isEnabled = await ScreenController.isServiceEnabled();
-          console.log("Screen controller status : ", isEnabled);
-          setIsScreenControllerEnabled(isEnabled);
-    
-          // Optional: If enabled, sync current sub-feature states to ensure Java is up to date
-          if (isEnabled) {
-            Object.keys(screenUsageControllerSubFeature).forEach(featureKey => {
-              const feature = screenUsageControllerSubFeature[featureKey];
-              syncSettingsToNative(featureKey, feature.enabled, feature.time);
-            });
-          }
-        } catch (error) {
-          console.error("Failed to check ScreenController status:", error);
-        }
-      }, [screenUsageControllerSubFeature]);
-
-    const syncSettingsToNative = async (featureKey, enabled, time) => {
-      try {
-        if (ScreenController && ScreenController.updateServiceSettings) {
-          await ScreenController.updateServiceSettings(featureKey, enabled, time);
-          console.log("updateServiceSettings method is called !");
-        }
-      } catch (e) {
-        console.error("Sync Error:", e);
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === 'active'
+      ) {
+        fetchSettingsFromNative();
       }
-    };
+      appState.current = nextAppState;
+    });
 
-    const updateScreenUsageControllerFeature = (feature, enabled, time) => {
-      const newTime = time || screenUsageControllerSubFeature[feature].time;
+    return () => subscription.remove();
+  }, [fetchSettingsFromNative]);
 
-      setScreenUsageControllerSubFeature((prev) => ({
-        ...prev,
-        [feature]: { enabled, time: newTime },
-      }));
-
-      // --- CALL HERE ---
-      // This syncs the specific sub-feature immediately when toggled or time is changed
-      syncSettingsToNative(feature, enabled, newTime);
+  const syncSettingsToNative = async (featureKey, enabled, time) => {
+    if (!packageName) return;
+    try {
+      if (ScreenController && ScreenController.updateServiceSettings) {
+        await ScreenController.updateServiceSettings(packageName, featureKey, enabled, time);
+      }
+    } catch (e) {
+      console.error("Sync Error:", e);
     }
+  };
+
+  const updateScreenUsageControllerFeature = (feature, enabled, time) => {
+    const newTime = time || screenUsageControllerSubFeature[feature].time;
+
+    setScreenUsageControllerSubFeature((prev) => ({
+      ...prev,
+      [feature]: { enabled, time: newTime },
+    }));
+
+    // Persist this sub-feature for this package immediately on toggle / time change.
+    syncSettingsToNative(feature, enabled, newTime);
+  };
 
   return (
     <View style={styles.container}>

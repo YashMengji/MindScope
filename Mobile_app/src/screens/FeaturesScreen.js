@@ -305,18 +305,12 @@ const FeaturesScreen = ({ navigation, selectedDirectory, setSelectedDirectory })
       const isEnabled = await ScreenController.isServiceEnabled();
       console.log("Screen controller status : ", isEnabled);
       setIsScreenControllerEnabled(isEnabled);
-
-      // Optional: If enabled, sync current sub-feature states to ensure Java is up to date
-      if (isEnabled) {
-        Object.keys(screenUsageControllerSubFeature).forEach(featureKey => {
-          const feature = screenUsageControllerSubFeature[featureKey];
-          syncSettingsToNative(featureKey, feature.enabled, feature.time);
-        });
-      }
+      // Per-app limits are now configured per package in ScreenTimeSettingsScreen,
+      // so FeaturesScreen only reflects whether the accessibility service is on.
     } catch (error) {
       console.error("Failed to check ScreenController status:", error);
     }
-  }, [screenUsageControllerSubFeature]);
+  }, []);
 
   const handleScreenUsageControllerToggle = async (newValue) => {
     // 1. PERMISSION CHECK: Only run if the user is trying to turn the toggle ON
