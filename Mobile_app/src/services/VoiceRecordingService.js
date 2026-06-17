@@ -133,14 +133,14 @@ export const fetchVoiceInferencePerUser = async (selectedDate) => {
     const token = await getToken();
     // console.log("Token retrieved in service:", token);
 
-    const userId = "6903301b93ef8bdb5a368a28"; // Replace with dynamic user ID if needed
+    // userId is resolved on the backend from the JWT (no need to pass it).
     // Normalize to a local YYYY-MM-DD; default to today when no date is provided
     const dateParam =
       selectedDate instanceof Date
         ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`
         : selectedDate || new Date().toISOString().split("T")[0];
     const response = await api.get(
-      `/voice/${userId}/${dateParam}`,
+      `/voice/date/${dateParam}`,
       {
         headers: {
           Authorization: `Bearer ${token}`,

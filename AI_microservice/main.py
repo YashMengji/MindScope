@@ -98,18 +98,21 @@ def load_resources():
         logger.warning(f"⚠️ Could not auto-discover models (Check API Key). Defaulting to: {CURRENT_MODEL_NAME}")
         logger.error(e)
 
-    # 2. LOAD LOCAL MODELS
-    # try:
-    #     logger.info("Loading DeHateBERT model...")
-    #     tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
-    #     model = AutoModelForSequenceClassification.from_pretrained(MODEL_ID)
-    #     model.to(DEVICE)
-    #     model.eval()
-
-    #     logger.info("Loading Emotion Classifier...")
-    #     emotion_classifier = pipeline("text-classification", model="SamLowe/roberta-base-go_emotions", top_k=3)
-    # except Exception as e:
-    #     logger.error(f"Error loading local models: {e}")
+    # 2. LOAD LOCAL EMOTION MODEL (gate for the hybrid pipeline)
+    # DeHateBERT stays disabled — we derive toxicity from go_emotions instead.
+    try:
+        logger.info("Loading Emotion Classifier (SamLowe/roberta-base-go_emotions)...")
+        # top_k=None returns the score for EVERY emotion label, not just the top few,
+        # so we can sum the hostile-emotion probabilities ourselves.
+        emotion_classifier = pipeline(
+            "text-classification",
+            model="SamLowe/roberta-base-go_emotions",
+            top_k=None,
+        )
+        logger.info("✅ Emotion classifier loaded.")
+    except Exception as e:
+        emotion_classifier = None
+        logger.warning(f"⚠️ Could not load emotion classifier — will fall back to Gemini-direct. {e}")
 
 # --------------------------------------------------------------------------
 # PYDANTIC SCHEMAS
@@ -223,85 +226,150 @@ async def analyze_audio(file: UploadFile = File(...)):
 
 # (Existing endpoints for text chat below...)
 
-def analyze_toxicity(messages: List[str]):
+# --------------------------------------------------------------------------
+# HYBRID PIPELINE: local emotion model gates the Gemini call
+# --------------------------------------------------------------------------
+
+# Hostile GoEmotions labels whose combined probability we treat as "toxicity".
+TOXIC_EMOTIONS = {"anger", "annoyance", "disgust", "disapproval"}
+
+# Above this, the conversation is sent to Gemini to generate feedback.
+HYBRID_TOXICITY_GATE = 0.20
+
+# Shown when the conversation stays below the gate (no Gemini call).
+HEALTHY_FEEDBACK = [
+    "Conversation tone looks healthy.",
+    "Keep communicating respectfully.",
+]
+
+
+def compute_toxicity_from_emotions(messages: List[str]) -> float:
     """
-    Simple function to analyze chat messages for toxicity
-    Returns: {'toxicity_score': float, 'feedback': [str, str]}
+    Derive a 0.0–1.0 toxicity score from the go_emotions classifier.
+
+    For each message we sum the probabilities of the hostile emotions
+    (anger, annoyance, disgust, disapproval) and cap at 1.0; the session
+    score is the worst (max) single message, so one hostile line can trip
+    the gate. Returns 0.0 for empty input.
     """
-    # Create simple prompt
+    if not messages or emotion_classifier is None:
+        return 0.0
+
+    worst = 0.0
+    for message in messages:
+        if not message or not message.strip():
+            continue
+        # pipeline(..., top_k=None) returns [[{label, score}, ...]] for one input.
+        predictions = emotion_classifier(message)
+        if predictions and isinstance(predictions[0], list):
+            predictions = predictions[0]
+
+        score = sum(
+            p["score"] for p in predictions if p["label"] in TOXIC_EMOTIONS
+        )
+        score = min(score, 1.0)
+        worst = max(worst, score)
+
+    return worst
+
+
+def generate_feedback_gemini(messages: List[str]) -> List[str]:
+    """
+    Use Gemini to generate exactly two lines of constructive feedback.
+    The toxicity score Gemini may produce is intentionally discarded — the
+    canonical score comes from the local emotion model.
+    """
     prompt = f"""
-     Analyze the following conversation for toxicity levels. 
+     Analyze the following conversation for communication patterns.
     Provide your analysis in the exact JSON structure specified below.
-    
+
     CONVERSATION MESSAGES:
     {messages}
-    
+
     INSTRUCTIONS:
     1. First, carefully read and understand all messages in the conversation
-    2. Assign a toxicity score from 0.0 to 1.0 (it can be also between these two end values)
-    3. Provide EXACTLY TWO lines of constructive, non-judgmental feedback:
+    2. Provide EXACTLY TWO lines of constructive, non-judgmental feedback:
        - Line 1: Specific observation about communication patterns
        - Line 2: Constructive suggestion for improvement
-    4. Keep feedback supportive and focused on communication skills
-    
+    3. Keep feedback supportive and focused on communication skills
+
     IMPORTANT RULES:
     - Provide ONLY the JSON output, no additional text
     - Feedback must be constructive, not accusatory. Also each line must be only of 10 words
     - Consider context and intent, not just individual words
     - Be culturally sensitive in your analysis
-    
+
     REQUIRED JSON FORMAT (example):
     {{
-        "toxicity_score": 0.5,
         "feedback": [
             "First line of constructive feedback here",
             "Second line of constructive feedback here"
         ]
     }}
-    
+
     Now provide your analysis:
     """
-    
+
     try:
         # Call Gemini (shares the auto-discovered model with the audio endpoint)
         model = genai.GenerativeModel(CURRENT_MODEL_NAME)
         response = model.generate_content(prompt)
-        
+
         # Extract JSON from response
         response_text = response.text.strip()
-        
+
         # Clean up if there are markdown code blocks
         if "```json" in response_text:
             response_text = response_text.split("```json")[1].split("```")[0].strip()
         elif "```" in response_text:
             response_text = response_text.split("```")[1].strip()
-        
-        # Parse JSON
+
         result = json.loads(response_text)
-        
-        # Ensure it has the right structure
-        if "toxicity_score" not in result:
-            result["toxicity_score"] = 0.0
-        
-        if "feedback" not in result or not isinstance(result["feedback"], list):
-            result["feedback"] = ["No feedback available.", "Try again."]
-        elif len(result["feedback"]) < 2:
-            # Ensure exactly 2 feedback lines
-            result["feedback"] = result["feedback"] + ["Consider your tone."]
-            if len(result["feedback"]) < 2:
-                result["feedback"].append("Be mindful of language.")
-        
-        return result
-        
+        feedback = result.get("feedback")
+
+        if not isinstance(feedback, list) or not feedback:
+            return ["No feedback available.", "Try again."]
+
+        # Ensure exactly two lines
+        if len(feedback) < 2:
+            feedback = feedback + ["Be mindful of language."]
+        return feedback[:2]
+
     except Exception as e:
-        # Fallback in case of error
-        return {
-            "toxicity_score": 0.0,
-            "feedback": [
-                "Unable to analyze messages.",
-                "Please try again later."
-            ]
-        }
+        logger.error(f"Gemini feedback generation failed: {e}")
+        return [
+            "Unable to analyze messages.",
+            "Please try again later.",
+        ]
+
+
+def analyze_toxicity(messages: List[str]):
+    """
+    Hybrid pipeline entry point.
+    Returns: {'toxicity_score': float, 'feedback': [str, str]}
+
+    1. Score toxicity locally with the go_emotions model.
+    2. If the model is unavailable, fall back to Gemini-direct (legacy behaviour).
+    3. If toxicity > 20%, ask Gemini for feedback; otherwise return a static
+       positive message and never touch Gemini.
+    """
+    # Graceful fallback: emotion model never loaded -> let Gemini do everything.
+    if emotion_classifier is None:
+        logger.warning("Emotion classifier unavailable — falling back to Gemini-direct scoring.")
+        feedback = generate_feedback_gemini(messages)
+        return {"toxicity_score": 0.0, "feedback": feedback}
+
+    toxicity = compute_toxicity_from_emotions(messages)
+    logger.info(f"Local emotion toxicity score: {toxicity:.3f} (gate: {HYBRID_TOXICITY_GATE})")
+
+    if toxicity > HYBRID_TOXICITY_GATE:
+        logger.info("Above gate → requesting Gemini feedback.")
+        feedback = generate_feedback_gemini(messages)
+    else:
+        logger.info("Below gate → skipping Gemini, returning static feedback.")
+        feedback = list(HEALTHY_FEEDBACK)
+
+    return {"toxicity_score": toxicity, "feedback": feedback}
 
 @app.post("/chat-text-data")
 async def process_chat_data(session: ChatSession):

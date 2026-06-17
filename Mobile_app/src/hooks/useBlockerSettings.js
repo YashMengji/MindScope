@@ -23,23 +23,19 @@ const DEFAULT_SETTINGS = {
   },
 };
 
-const HARDCODED_USER_ID = '6903301b93ef8bdb5a368a28';
 const STORAGE_KEY = '@mindscope_blocker_v2';
 
-export const useBlockerSettings = (userIdFromContext) => {
-  const userId = userIdFromContext || HARDCODED_USER_ID;
-
+export const useBlockerSettings = () => {
+  // The authenticated user is resolved on the backend from the JWT.
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const saveTimerRef = useRef(null);
-  const userIdRef = useRef(userId);
-  useEffect(() => { userIdRef.current = userId; }, [userId]);
 
   // ── Load ──────────────────────────────────────────────────────────────────
   const loadSettings = useCallback(async () => {
-    console.log('[Blocker] loadSettings for userId:', userId);
+    console.log('[Blocker] loadSettings');
     setLoading(true);
     try {
       const cached = await AsyncStorage.getItem(STORAGE_KEY);
@@ -55,7 +51,7 @@ export const useBlockerSettings = (userIdFromContext) => {
         setSettings(merged);
       }
 
-      const remote = await fetchBlockerSettings(userId);
+      const remote = await fetchBlockerSettings();
       console.log('[Blocker] Backend response:', JSON.stringify(remote));
       if (remote && (remote.instagram || remote.youtube || remote.whatsapp)) {
         const merged = {
@@ -72,13 +68,12 @@ export const useBlockerSettings = (userIdFromContext) => {
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, []);
 
   useEffect(() => { loadSettings(); }, [loadSettings]);
 
   // ── Persist ───────────────────────────────────────────────────────────────
   const persistSettings = useCallback((newSettings) => {
-    const uid = userIdRef.current;
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newSettings))
       .then(() => console.log('[Blocker] AsyncStorage write SUCCESS'))
       .catch((e) => console.warn('[Blocker] AsyncStorage write FAILED:', e));
@@ -87,7 +82,7 @@ export const useBlockerSettings = (userIdFromContext) => {
     saveTimerRef.current = setTimeout(async () => {
       setSaving(true);
       try {
-        const result = await saveBlockerSettings(uid, newSettings);
+        const result = await saveBlockerSettings(newSettings);
         console.log('[Blocker] Backend save SUCCESS:', JSON.stringify(result));
       } catch (e) {
         console.warn('[Blocker] Backend save FAILED (local preserved):', e?.message);

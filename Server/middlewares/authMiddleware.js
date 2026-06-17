@@ -1,5 +1,7 @@
 import jwt from "jsonwebtoken";
 
+const JWT_SECRET = process.env.JWT_SECRET || "secret";
+
 export const authMiddleware = (req, res, next) => {
   const authHeader = req.headers["authorization"];
 
@@ -15,8 +17,7 @@ export const authMiddleware = (req, res, next) => {
   }
 
   try {
-    // const decoded = jwt.verify(token, process.env.JWT_SECRET); // verify token
-    const decoded = jwt.verify(token, "secret"); // verify token
+    const decoded = jwt.verify(token, JWT_SECRET); // verify token
     req.user = decoded; // attach user payload (id, email, etc.)
     next();
   } catch (err) {

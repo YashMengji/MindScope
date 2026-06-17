@@ -9,7 +9,7 @@ export const saveChatInference = async (req, res) => {
     const endTimestamp = req.body.analysis.endTimestamp;
     const feedback = req.body.analysis.feedback;
     const toxicityScore = req.body.analysis.toxicityScore;
-    const userId = new mongoose.Types.ObjectId("6903301b93ef8bdb5a368a28");
+    const userId = new mongoose.Types.ObjectId(req.user.id);
 
     const chat = new ChatInference({
       sessionId,
@@ -30,8 +30,7 @@ export const saveChatInference = async (req, res) => {
 
 export const getChatByUserId = async (req, res) => {
   try {
-    // const userId = req.params.userId;
-    const userId = new mongoose.Types.ObjectId("6903301b93ef8bdb5a368a28");
+    const userId = new mongoose.Types.ObjectId(req.user.id);
     const selectedDate = req.params.selectedDate;
 
     console.log("User ID received in (controller):", userId);

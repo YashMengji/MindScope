@@ -5,7 +5,7 @@ export const saveVoiceInference = async (req, res) => {
   try {
     const { fileName, data } = req.body;
     const { toxicity_score, feedback } = data;
-    const userId = new mongoose.Types.ObjectId("6903301b93ef8bdb5a368a28");
+    const userId = req.user.id;
 
     const voice = new VoiceInference({
       fileName,
@@ -44,7 +44,8 @@ export const checkVoiceInference = async (req, res) => {
 
 export const fetchVoiceInferencePerUser = async (req, res) => {
   try {
-    const { userId, selectedDate } = req.params;
+    const userId = req.user.id;
+    const { selectedDate } = req.params;
 
     const startOfDay = new Date(selectedDate);
     startOfDay.setHours(0, 0, 0, 0); // Set time to 00:00:00.000

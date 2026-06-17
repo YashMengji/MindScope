@@ -19,17 +19,16 @@ export const sendChatInference = async (chatInferenceData) => {
   }
 };
 
-export const getChat = async (userId, selectedDate) => {
+export const getChat = async (selectedDate) => {
   try {
-    const token = await getToken();
-    console.log("Token retrieved in service:", token);
+    // userId is resolved on the backend from the JWT (no need to pass it).
     // Normalize to a local YYYY-MM-DD so the URL matches the picked calendar day
     // (toISOString() would shift the day in timezones ahead of UTC).
     const dateParam =
       selectedDate instanceof Date
         ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`
         : selectedDate;
-    const response = await api.get(`/chat/${userId}/${dateParam}`, {
+    const response = await api.get(`/chat/${dateParam}`, {
       headers: {
         "Content-Type": "application/json",
       },

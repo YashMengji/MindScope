@@ -14,12 +14,15 @@ export const AuthContextProvider = ({ children }) => {
       try {
         const token = await getToken();
         if (token) {
-          // fetch user from backend
+          // fetch user from backend using the stored JWT
           const profile = await getProfile();
           setUser(profile);
         }
       } catch (err) {
-        console.error("Error loading user:", err);
+        // Token is missing/expired/invalid — clear it so we don't keep retrying.
+        console.error("Error loading user:", err?.response?.data || err.message);
+        await removeToken();
+        setUser(null);
       } finally {
         setLoading(false);
       }
@@ -31,13 +34,20 @@ export const AuthContextProvider = ({ children }) => {
     setUser(profile); // set after login/signup
   };
 
+  // Merge updated fields (e.g. after editing the profile) into the user.
+  const updateUser = (updates) => {
+    setUser((prev) => ({ ...(prev || {}), ...updates }));
+  };
+
   const logout = async () => {
     await removeToken();
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loginContext, logout, loading }}>
+    <AuthContext.Provider
+      value={{ user, loginContext, updateUser, logout, loading }}
+    >
       {children}
     </AuthContext.Provider>
   );

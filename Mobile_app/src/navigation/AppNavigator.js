@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useContext, useState } from "react";
+import { View, ActivityIndicator } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -16,7 +17,7 @@ import VoiceAnalysisScreen from "../screens/VoiceAnalysisScreen";
 import AppSelectorScreen from "../screens/AppSelectorScreen";
 import ScreenTimeSettingsScreen from "../screens/ScreenTimeSettingsScreen";
 import SectionBlockerScreen from "../screens/SectionBlockerScreen";
-import { useState } from "react";
+import { AuthContext } from "../context/AuthContext";
 
 // NOTE: No JS overlay here. The blocker overlay is drawn entirely
 // by AccessibilityBlockerService.java using TYPE_APPLICATION_OVERLAY
@@ -63,21 +64,52 @@ function MainAppTabs() {
   );
 }
 
+// Screens shown only when the user is authenticated.
+function AppStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="MainApp" component={MainAppTabs} />
+      <Stack.Screen name="SectionBlocker" component={SectionBlockerScreen} />
+      <Stack.Screen name="AppSelectorScreen" component={AppSelectorScreen} />
+      <Stack.Screen
+        name="ScreenTimeSettingsScreen"
+        component={ScreenTimeSettingsScreen}
+      />
+    </Stack.Navigator>
+  );
+}
+
+// Screens shown only when the user is NOT authenticated.
+function AuthStack() {
+  return (
+    <Stack.Navigator
+      initialRouteName="Landing"
+      screenOptions={{ headerShown: false }}
+    >
+      <Stack.Screen name="Landing" component={LandingScreen} />
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="SignUp" component={SignUpScreen} />
+    </Stack.Navigator>
+  );
+}
+
 const AppNavigator = () => {
+  const { user, loading } = useContext(AuthContext);
+
+  // While we check for a stored token / load the profile, show a spinner.
+  if (loading) {
+    return (
+      <View
+        style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+      >
+        <ActivityIndicator size="large" color="#003366" />
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
-      <Stack.Navigator
-        initialRouteName="MainApp"
-        screenOptions={{ headerShown: false }}
-      >
-        <Stack.Screen name="Landing" component={LandingScreen} />
-        <Stack.Screen name="MainApp" component={MainAppTabs} />
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="SignUp" component={SignUpScreen} />
-        <Stack.Screen name="SectionBlocker" component={SectionBlockerScreen} />
-        <Stack.Screen name="AppSelectorScreen" component={AppSelectorScreen} />
-        <Stack.Screen name="ScreenTimeSettingsScreen" component={ScreenTimeSettingsScreen} />
-      </Stack.Navigator>
+      {user ? <AppStack /> : <AuthStack />}
     </NavigationContainer>
   );
 };

@@ -84,7 +84,7 @@ const SectionBlockerScreen = ({ navigation }) => {
     toggleInstagramMaster,
     toggleYoutubeMaster,
     toggleWhatsappMaster,
-  } = useBlockerSettings(user?._id);
+  } = useBlockerSettings();
 
   // ── Sync native service whenever settings change ──────────────────────────
   useEffect(() => {

@@ -97,7 +97,7 @@ const AnalyticsScreen = () => {
   const fetchChatData = async (selectedDate) => {
     try {
       console.log("Fetching chat data for user:", user?._id);
-      const response = await getChat("6903301b93ef8bdb5a368a28", selectedDate);
+      const response = await getChat(selectedDate);
       console.log("Chat data response:", response);
 
       if (response && response.chats) {

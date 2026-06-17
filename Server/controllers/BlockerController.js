@@ -2,7 +2,7 @@ import BlockerSettings from '../models/BlockerSettings.js';
 
 export const fetchSettings = async (req, res) => {
   try {
-    const { userId } = req.params;
+    const userId = req.user.id;
     const doc = await BlockerSettings.findOne({ userId });
 
     if (!doc) {
@@ -26,8 +26,8 @@ export const fetchSettings = async (req, res) => {
 
 export const saveSettings = async (req, res) => {
   try {
-    const { userId, instagram, youtube, whatsapp } = req.body;
-    if (!userId) return res.status(400).json({ message: 'userId is required' });
+    const userId = req.user.id;
+    const { instagram, youtube, whatsapp } = req.body;
 
     const doc = await BlockerSettings.findOneAndUpdate(
       { userId },

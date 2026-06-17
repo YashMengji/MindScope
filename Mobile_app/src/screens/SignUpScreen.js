@@ -35,29 +35,54 @@ const SignUpScreen = ({ navigation }) => {
   const [isConfirmPasswordFocused, setIsConfirmPasswordFocused] =
     useState(false);
   const { loginContext } = useContext(AuthContext);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Inline, on-screen signal so it's always visible (even if Alerts don't show).
+  // { type: "info" | "error" | "success", text: string } | null
+  const [status, setStatus] = useState(null);
 
   const handleSignUp = async () => {
+    console.log("[SignUp] button pressed");
     if (!name || !email || !password || !confirmPassword) {
       console.log("Fill in all fields to sign up.");
+      setStatus({ type: "error", text: "Please fill in all fields to sign up." });
       Alert.alert("Incomplete Form", "Please fill in all fields to sign up.");
       return;
     }
     if (password !== confirmPassword) {
+      setStatus({ type: "error", text: "Passwords do not match." });
       Alert.alert("Password Mismatch", "Passwords do not match.");
       return;
     }
 
     const userData = {
-      name,
-      email,
+      name: name.trim(),
+      email: email.trim(),
       password,
     };
 
-    // send signup credentials to express server
-    const res = await signup(userData);
-    console.log("Signup successful : ", res);
-    await loginContext(res.user);
-    navigation.replace("MainApp");
+    try {
+      setIsSubmitting(true);
+      setStatus({ type: "info", text: "Connecting to server..." });
+      // send signup credentials to express server
+      const res = await signup(userData);
+      console.log("Signup successful : ", res);
+      setStatus({ type: "success", text: "Account created! Loading..." });
+      // Setting the user switches the navigator to the authenticated stack.
+      await loginContext(res.user);
+    } catch (err) {
+      const message =
+        err?.response?.data?.message ||
+        (err?.code === "ECONNABORTED"
+          ? "Request timed out — is the server running and reachable? (try: adb reverse tcp:3000 tcp:3000)"
+          : err?.message === "Network Error"
+          ? "Network error — can't reach the server at localhost:3000. Run: adb reverse tcp:3000 tcp:3000"
+          : "Unable to create your account. Please try again.");
+      setStatus({ type: "error", text: message });
+      Alert.alert("Sign Up Failed", message);
+      console.error("Signup error:", err?.response?.data || err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const renderFloatingLabel = (label, isFocused, hasValue) => (
@@ -188,9 +213,27 @@ const SignUpScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={styles.button} onPress={handleSignUp}>
-              <Text style={styles.buttonText}>REGISTER</Text>
+            <TouchableOpacity
+              style={[styles.button, isSubmitting && styles.buttonDisabled]}
+              onPress={handleSignUp}
+              disabled={isSubmitting}
+            >
+              <Text style={styles.buttonText}>
+                {isSubmitting ? "CREATING..." : "REGISTER"}
+              </Text>
             </TouchableOpacity>
+
+            {status && (
+              <Text
+                style={[
+                  styles.statusText,
+                  status.type === "error" && styles.statusError,
+                  status.type === "success" && styles.statusSuccess,
+                ]}
+              >
+                {status.text}
+              </Text>
+            )}
 
             <View style={styles.footer}>
               <Text style={styles.footerText}>Already have an account? </Text>
@@ -289,10 +332,26 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
   buttonText: {
     color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "bold",
+  },
+  statusText: {
+    marginTop: 14,
+    textAlign: "center",
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#003366",
+  },
+  statusError: {
+    color: "#D32F2F",
+  },
+  statusSuccess: {
+    color: "#2E7D32",
   },
   footer: {
     flexDirection: "row",
