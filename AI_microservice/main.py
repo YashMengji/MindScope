@@ -11,9 +11,11 @@ import time
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
-# ✅ Local ML Imports
-from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification
-import torch
+# ✅ Local ML Imports — DISABLED for free-tier deploy (torch + transformers
+# exceed the 512MB instance and block uvicorn's port binding at startup).
+# Toxicity scoring + feedback now go directly through the Gemini API.
+# from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification
+# import torch
 from dotenv import load_dotenv
 
 # ✅ Initialize logging
@@ -44,10 +46,10 @@ if not GOOGLE_API_KEY:
     raise ValueError("❌ GOOGLE_API_KEY not found! Check your .env file.")
 genai.configure(api_key=GOOGLE_API_KEY)
 
-# Constants for Local Models
-MODEL_ID = "Hate-speech-CNERG/dehatebert-mono-english" 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-TOXICITY_THRESHOLD = 0.5 
+# Constants for Local Models (kept for reference; local models are disabled)
+MODEL_ID = "Hate-speech-CNERG/dehatebert-mono-english"
+# DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+TOXICITY_THRESHOLD = 0.5
 
 # GLOBAL VARIABLE FOR THE CORRECT MODEL NAME
 CURRENT_MODEL_NAME = "models/gemini-2.5-flash" # Default fallback (multimodal: text + audio)
@@ -98,21 +100,25 @@ def load_resources():
         logger.warning(f"⚠️ Could not auto-discover models (Check API Key). Defaulting to: {CURRENT_MODEL_NAME}")
         logger.error(e)
 
-    # 2. LOAD LOCAL EMOTION MODEL (gate for the hybrid pipeline)
-    # DeHateBERT stays disabled — we derive toxicity from go_emotions instead.
-    try:
-        logger.info("Loading Emotion Classifier (SamLowe/roberta-base-go_emotions)...")
-        # top_k=None returns the score for EVERY emotion label, not just the top few,
-        # so we can sum the hostile-emotion probabilities ourselves.
-        emotion_classifier = pipeline(
-            "text-classification",
-            model="SamLowe/roberta-base-go_emotions",
-            top_k=None,
-        )
-        logger.info("✅ Emotion classifier loaded.")
-    except Exception as e:
-        emotion_classifier = None
-        logger.warning(f"⚠️ Could not load emotion classifier — will fall back to Gemini-direct. {e}")
+    # 2. LOCAL EMOTION MODEL — DISABLED for free-tier deploy.
+    # Loading SamLowe/roberta-base-go_emotions (~500MB) into a 512MB instance
+    # OOMs and blocks uvicorn from binding its port. We leave emotion_classifier
+    # as None so analyze_toxicity() routes straight to the Gemini API.
+    emotion_classifier = None
+    logger.info("ℹ️ Local emotion model disabled — using Gemini-direct scoring.")
+    # try:
+    #     logger.info("Loading Emotion Classifier (SamLowe/roberta-base-go_emotions)...")
+    #     # top_k=None returns the score for EVERY emotion label, not just the top few,
+    #     # so we can sum the hostile-emotion probabilities ourselves.
+    #     emotion_classifier = pipeline(
+    #         "text-classification",
+    #         model="SamLowe/roberta-base-go_emotions",
+    #         top_k=None,
+    #     )
+    #     logger.info("✅ Emotion classifier loaded.")
+    # except Exception as e:
+    #     emotion_classifier = None
+    #     logger.warning(f"⚠️ Could not load emotion classifier — will fall back to Gemini-direct. {e}")
 
 # --------------------------------------------------------------------------
 # PYDANTIC SCHEMAS

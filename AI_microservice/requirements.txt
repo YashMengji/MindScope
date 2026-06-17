@@ -10,6 +10,8 @@ pydantic==2.11.7
 # package — NOT `google-genai` (the new `google.genai` SDK with a different API).
 google-generativeai
 
-# --- Local ML Models (Required by your main.py imports) ---
-transformers
-torch
+# --- Local ML Models: DISABLED for free-tier deploy ---
+# transformers and torch were removed — they exceed the 512MB free instance
+# and blocked startup. Toxicity scoring now goes directly through Gemini.
+# transformers
+# torch
