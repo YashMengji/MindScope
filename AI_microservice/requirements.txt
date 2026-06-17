@@ -5,9 +5,10 @@ python-multipart==0.0.20
 python-dotenv==1.1.1
 pydantic==2.11.7
 
-# --- New Google AI SDK ---
-google-genai
-# (Note: strictly excluded 'google-generativeai' to prevent conflicts)
+# --- Google AI SDK ---
+# main.py imports `google.generativeai` (the classic SDK), so we install that
+# package — NOT `google-genai` (the new `google.genai` SDK with a different API).
+google-generativeai
 
 # --- Local ML Models (Required by your main.py imports) ---
 transformers
