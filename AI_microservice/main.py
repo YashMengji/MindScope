@@ -372,22 +372,22 @@ def analyze_toxicity(messages: List[str]):
     Returns: {'toxicity_score': float, 'feedback': [str, str]}
 
     1. Score toxicity locally with the go_emotions model.
-    2. If the model is unavailable, fall back to Gemini-direct (legacy behaviour).
-    3. If toxicity > 20%, ask Gemini for feedback; otherwise return a static
-       positive message and never touch Gemini.
+    2. If the model is unavailable, fall back to Gemini-direct scoring (both score + feedback).
+    3. If toxicity > 20%, ask Gemini for feedback; otherwise return a static positive message.
     """
-    # Graceful fallback: emotion model never loaded -> let Gemini do everything.
+    # Graceful fallback: emotion model never loaded -> let Gemini do everything
+    # (it returns both toxicity_score and feedback).
     if emotion_classifier is None:
         logger.warning("Emotion classifier unavailable — falling back to Gemini-direct scoring.")
-        feedback = generate_feedback_gemini(messages)
-        return {"toxicity_score": 0.0, "feedback": feedback}
+        return generate_feedback_gemini(messages)
 
     toxicity = compute_toxicity_from_emotions(messages)
     logger.info(f"Local emotion toxicity score: {toxicity:.3f} (gate: {HYBRID_TOXICITY_GATE})")
 
     if toxicity > HYBRID_TOXICITY_GATE:
         logger.info("Above gate → requesting Gemini feedback.")
-        feedback = generate_feedback_gemini(messages)
+        gemini_result = generate_feedback_gemini(messages)
+        feedback = gemini_result["feedback"]
     else:
         logger.info("Below gate → skipping Gemini, returning static feedback.")
         feedback = list(HEALTHY_FEEDBACK)
