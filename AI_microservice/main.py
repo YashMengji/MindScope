@@ -279,11 +279,13 @@ def compute_toxicity_from_emotions(messages: List[str]) -> float:
     return worst
 
 
-def generate_feedback_gemini(messages: List[str]) -> List[str]:
+def generate_feedback_gemini(messages: List[str]) -> dict:
     """
-    Use Gemini to generate exactly two lines of constructive feedback.
-    The toxicity score Gemini may produce is intentionally discarded — the
-    canonical score comes from the local emotion model.
+    Use Gemini to produce BOTH a toxicity score and two lines of feedback.
+
+    Temporary: while the local emotion model is disabled, Gemini is the only
+    scorer, so we ask it for the toxicity_score here too.
+    Returns: {'toxicity_score': float (0.0-1.0), 'feedback': [str, str]}
     """
     prompt = f"""
      Analyze the following conversation for communication patterns.
@@ -294,19 +296,24 @@ def generate_feedback_gemini(messages: List[str]) -> List[str]:
 
     INSTRUCTIONS:
     1. First, carefully read and understand all messages in the conversation
-    2. Provide EXACTLY TWO lines of constructive, non-judgmental feedback:
+    2. Rate the overall toxicity on a scale from 0.0 to 1.0, where 0.0 is
+       completely respectful and 1.0 is extremely toxic (insults, threats,
+       hate speech, harassment).
+    3. Provide EXACTLY TWO lines of constructive, non-judgmental feedback:
        - Line 1: Specific observation about communication patterns
        - Line 2: Constructive suggestion for improvement
-    3. Keep feedback supportive and focused on communication skills
+    4. Keep feedback supportive and focused on communication skills
 
     IMPORTANT RULES:
     - Provide ONLY the JSON output, no additional text
+    - toxicity_score must be a number between 0.0 and 1.0
     - Feedback must be constructive, not accusatory. Also each line must be only of 10 words
     - Consider context and intent, not just individual words
     - Be culturally sensitive in your analysis
 
     REQUIRED JSON FORMAT (example):
     {{
+        "toxicity_score": 0.0,
         "feedback": [
             "First line of constructive feedback here",
             "Second line of constructive feedback here"
@@ -331,22 +338,32 @@ def generate_feedback_gemini(messages: List[str]) -> List[str]:
             response_text = response_text.split("```")[1].strip()
 
         result = json.loads(response_text)
+
+        # Parse + clamp the toxicity score (defensive: Gemini may omit/garble it).
+        try:
+            toxicity_score = float(result.get("toxicity_score", 0.0))
+        except (TypeError, ValueError):
+            toxicity_score = 0.0
+        toxicity_score = max(0.0, min(toxicity_score, 1.0))
+
         feedback = result.get("feedback")
-
         if not isinstance(feedback, list) or not feedback:
-            return ["No feedback available.", "Try again."]
-
+            feedback = ["No feedback available.", "Try again."]
         # Ensure exactly two lines
-        if len(feedback) < 2:
+        elif len(feedback) < 2:
             feedback = feedback + ["Be mindful of language."]
-        return feedback[:2]
+
+        return {"toxicity_score": toxicity_score, "feedback": feedback[:2]}
 
     except Exception as e:
         logger.error(f"Gemini feedback generation failed: {e}")
-        return [
-            "Unable to analyze messages.",
-            "Please try again later.",
-        ]
+        return {
+            "toxicity_score": 0.0,
+            "feedback": [
+                "Unable to analyze messages.",
+                "Please try again later.",
+            ],
+        }
 
 
 def analyze_toxicity(messages: List[str]):
