@@ -8,6 +8,7 @@ const { ChatAccessibilityModule } = NativeModules;
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View } from 'react-native';
 import { sendChatInference } from "./src/services/chatInferenceService";
+import { FASTAPI_URL } from "./src/config/endpoints";
 
 const styles = StyleSheet.create({
   container: {
@@ -45,7 +46,7 @@ export default function App() {
           try {
             // Send the entire session data to FastAPI
             const response = await axios.post(
-              `http://localhost:8000/chat-text-data`,
+              `${FASTAPI_URL}/chat-text-data`,
               {
                 messages: messages, // Array of messages
                 startTimestamp: startTimestamp,

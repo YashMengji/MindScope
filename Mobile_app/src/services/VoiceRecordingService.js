@@ -2,12 +2,10 @@ import api from "../api/axiosConfig";
 import axios from "axios";
 import { getToken } from "./tokenService";
 import FormData from "form-data";
+import { FASTAPI_URL, EXPRESS_API_URL } from "../config/endpoints";
 
-// Constants
-// NOTE: If using a real device, replace 'localhost' with your machine's IP address 
-// or use 'adb reverse tcp:3000 tcp:3000'
-const FASTAPI_URL = "http://localhost:8000";
-const EXPRESS_URL = "http://localhost:3000/api";
+// EXPRESS_API_URL kept for reference; Express calls go through the shared `api` instance.
+const EXPRESS_URL = EXPRESS_API_URL;
 
 export const analyzeVoiceRecording = async (recordingFile) => {
   try {

@@ -1,11 +1,12 @@
 import axios from "axios";
 import { getToken } from "../services/tokenService";
-// import { IP_ADDRESS } from "@env";
+import { EXPRESS_API_URL } from "../config/endpoints";
 
 const api = axios.create({
-  // baseURL: `http://${IP_ADDRESS}:3000/api`, // Replace with your Express server
-  baseURL: `http://localhost:3000/api`,
-  timeout: 10000,
+  baseURL: EXPRESS_API_URL,
+  // Render free instances cold-start (spin down when idle), so the first
+  // request after a while can take 30-60s. Keep a generous timeout.
+  timeout: 60000,
   headers: { "Content-Type": "application/json" },
 });
 
