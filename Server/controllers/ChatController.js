@@ -1,4 +1,4 @@
-import ChatInference from "../models/chatinference.js";
+import ChatInference from "../models/ChatInference.js";
 import mongoose from "mongoose";
 
 export const saveChatInference = async (req, res) => {
