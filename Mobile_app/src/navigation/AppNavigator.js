@@ -1,5 +1,6 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import { View, ActivityIndicator } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -17,6 +18,9 @@ import VoiceAnalysisScreen from "../screens/VoiceAnalysisScreen";
 import AppSelectorScreen from "../screens/AppSelectorScreen";
 import ScreenTimeSettingsScreen from "../screens/ScreenTimeSettingsScreen";
 import SectionBlockerScreen from "../screens/SectionBlockerScreen";
+import PermissionsOnboardingScreen, {
+  ONBOARDING_COMPLETE_KEY,
+} from "../screens/PermissionsOnboardingScreen";
 import { AuthContext } from "../context/AuthContext";
 
 // NOTE: No JS overlay here. The blocker overlay is drawn entirely
@@ -66,8 +70,37 @@ function MainAppTabs() {
 
 // Screens shown only when the user is authenticated.
 function AppStack() {
+  // Decide whether to show the one-time permissions onboarding first.
+  const [initialRoute, setInitialRoute] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const done = await AsyncStorage.getItem(ONBOARDING_COMPLETE_KEY);
+        setInitialRoute(done === "true" ? "MainApp" : "PermissionsOnboarding");
+      } catch {
+        setInitialRoute("MainApp");
+      }
+    })();
+  }, []);
+
+  if (!initialRoute) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#003366" />
+      </View>
+    );
+  }
+
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator
+      initialRouteName={initialRoute}
+      screenOptions={{ headerShown: false }}
+    >
+      <Stack.Screen
+        name="PermissionsOnboarding"
+        component={PermissionsOnboardingScreen}
+      />
       <Stack.Screen name="MainApp" component={MainAppTabs} />
       <Stack.Screen name="SectionBlocker" component={SectionBlockerScreen} />
       <Stack.Screen name="AppSelectorScreen" component={AppSelectorScreen} />

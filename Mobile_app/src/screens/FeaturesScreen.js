@@ -495,6 +495,24 @@ const FeaturesScreen = ({ navigation, selectedDirectory, setSelectedDirectory })
       </View>
 
       <ScrollView style={styles.featuresContainer}>
+        {/* Permissions setup (deep-links to MIUI autostart/battery/pop-up) */}
+        <TouchableOpacity
+          style={styles.card}
+          activeOpacity={0.82}
+          onPress={() => navigation.navigate("PermissionsOnboarding")}
+        >
+          <View style={styles.mainFeatureRow}>
+            <Ionicons name="shield-checkmark-outline" size={32} color="#0A2E5B" />
+            <View style={{ flex: 1, marginLeft: 16 }}>
+              <Text style={styles.sectionBlockerCardTitle}>Background & permissions setup</Text>
+              <Text style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>
+                Autostart, battery & pop-up settings so analysis keeps running
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color="#9CA3AF" />
+          </View>
+        </TouchableOpacity>
+
         {/* Chat Message Analysis */}
         <FeatureCard
           iconName="chatbubble-ellipses-outline"
