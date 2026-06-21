@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   AppState,
   NativeModules,
+  InteractionManager,
 } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -103,8 +104,14 @@ const HomeScreen = ({ navigation }) => {
     }
   }, []);
 
+  // Defer the heavy native usage-stats queries until AFTER the launch
+  // navigation/animations have settled. This lets the app become interactive
+  // immediately; the home metrics then populate in the background.
   useEffect(() => {
-    loadData();
+    const task = InteractionManager.runAfterInteractions(() => {
+      loadData();
+    });
+    return () => task.cancel();
   }, [loadData]);
 
   // Re-check permission / refresh when returning from system settings.
@@ -377,23 +384,30 @@ const HomeScreen = ({ navigation }) => {
     );
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4A90E2" />
-        <Text style={styles.loadingText}>Fetching your digital wellbeing data...</Text>
-      </View>
-    );
-  }
+  // While the deferred fetch is still running and we don't yet know the
+  // permission state, show the scaffold with a lightweight inline indicator
+  // instead of blocking the whole screen.
+  const isInitialLoading = loading && permissionGranted === null;
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Digital Wellbeing</Text>
         <Text style={styles.subtitle}>Today's Usage</Text>
+        {loading && (
+          <View style={styles.headerLoadingRow}>
+            <ActivityIndicator size="small" color="#FFFFFF" />
+            <Text style={styles.headerLoadingText}>Updating…</Text>
+          </View>
+        )}
       </View>
 
-      {permissionGranted === false ? (
+      {isInitialLoading ? (
+        <View style={styles.inlineLoadingContainer}>
+          <ActivityIndicator size="large" color="#4A90E2" />
+          <Text style={styles.loadingText}>Fetching your digital wellbeing data…</Text>
+        </View>
+      ) : permissionGranted === false ? (
         renderPermissionCard()
       ) : (
         <>
@@ -440,6 +454,21 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 14,
     color: '#666',
+  },
+  inlineLoadingContainer: {
+    paddingVertical: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  headerLoadingText: {
+    marginLeft: 8,
+    fontSize: 12,
+    color: '#FFFFFF',
   },
   header: {
     padding: 20,

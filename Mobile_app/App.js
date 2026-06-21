@@ -1,10 +1,10 @@
 import React, { useEffect } from "react";
-import { NativeEventEmitter, NativeModules } from "react-native";
+import { NativeEventEmitter, NativeModules, AppState } from "react-native";
 import axios from "axios";
 import AppNavigator from "./src/navigation/AppNavigator";
 import { AuthContextProvider } from "./src/context/AuthContext";
 // import { IP_ADDRESS } from "@env";
-const { ChatAccessibilityModule } = NativeModules;
+const { ChatAccessibility } = NativeModules;
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View } from 'react-native';
 import { sendChatInference } from "./src/services/chatInferenceService";
@@ -23,64 +23,88 @@ export default function App() {
   console.log("This is log from app.js");
 
   // This useEffect hook will run when the app starts.
-  // It sets up your native event listener.
+  // It sets up your native event listener and drains the durable outbox.
   useEffect(() => {
     console.log("App has opened and initialized."); // Single log when the app opens
-    // Mark JS runtime ready whenever the app mounts
 
-    const eventEmitter = new NativeEventEmitter(ChatAccessibilityModule);
-    const subscription = eventEmitter.addListener(
-      "ChatSessionEvent",
-      async (sessionData) => {
-        console.log("Full session data received:", sessionData);
+    let draining = false; // prevent overlapping drains
 
-        // Extract messages array from the session data
-        const messages = sessionData.messages;
-        const startTimestamp = sessionData.startTimestamp;
-        const endTimestamp = sessionData.endTimestamp;
-
-        console.log("Messages extracted:", messages);
-        console.log("Session duration:", endTimestamp - startTimestamp, "ms");
-
-        if (messages && messages.length > 0) {
-          try {
-            // Send the entire session data to FastAPI
-            const response = await axios.post(
-              `${FASTAPI_URL}/chat-text-data`,
-              {
-                messages: messages, // Array of messages
-                startTimestamp: startTimestamp,
-                endTimestamp: endTimestamp,
-                sessionId: `${startTimestamp}-${endTimestamp}`, // Unique ID
-              },
-              { headers: { "Content-Type": "application/json" } }
-            );
-            console.log(typeof response.data);
-            try {
-              await sendChatInference(response.data);
-
-            } catch (err) {
-              console.error("Error in sendChatInference:", err);
-            }
-            
-            console.log("Data sent successfully to FastAPI");
-            console.log(
-              "response from fastAPI : ",
-              // JSON.stringify(response.data, null, 2)
-              response.data
-            );
-            console.log(response.data.analysis.feedback);
-            
-          } catch (error) {
-            console.error("Error sending to FastAPI:", error);
-          }
-        } else {
-          console.log("No messages in this session, skipping API call.");
-        }
+    // Deliver one captured session: FastAPI analysis -> backend persistence.
+    // Throws on any failure so the caller keeps the session queued for retry.
+    const deliverSession = async (session) => {
+      const { sessionId, messages, startTimestamp, endTimestamp } = session;
+      if (!messages || messages.length === 0) {
+        return; // nothing to analyze; treat as delivered so it gets removed
       }
-    );
+      const response = await axios.post(
+        `${FASTAPI_URL}/chat-text-data`,
+        {
+          messages,
+          startTimestamp,
+          endTimestamp,
+          sessionId: sessionId || `${startTimestamp}-${endTimestamp}`,
+        },
+        { headers: { "Content-Type": "application/json" } }
+      );
+      await sendChatInference(response.data);
+      console.log("Delivered session:", sessionId, response.data?.analysis?.feedback);
+    };
 
-    return () => subscription.remove();
+    // Drain the durable outbox. Each session is removed only after it is fully
+    // delivered; failures stay queued and retry on the next drain. Delivery is
+    // at-least-once and the backend dedups on unique sessionId.
+    const drainPendingSessions = async () => {
+      if (draining) return;
+      if (!ChatAccessibility || !ChatAccessibility.getPendingSessions) {
+        console.warn("ChatAccessibility native module unavailable; cannot drain outbox.");
+        return;
+      }
+      draining = true;
+      try {
+        const json = await ChatAccessibility.getPendingSessions();
+        let sessions = [];
+        try {
+          sessions = JSON.parse(json || "[]");
+        } catch (e) {
+          console.error("Failed to parse pending sessions:", e);
+          return;
+        }
+        console.log(`Draining ${sessions.length} pending session(s)`);
+        for (const session of sessions) {
+          const id = session.sessionId || `${session.startTimestamp}-${session.endTimestamp}`;
+          try {
+            await deliverSession(session);
+            await ChatAccessibility.removePendingSession(id);
+          } catch (err) {
+            // Leave queued for the next drain (network/server down, etc.)
+            console.error(`Delivery failed for session ${id}, keeping queued:`, err?.message || err);
+          }
+        }
+      } catch (error) {
+        console.error("Error draining pending sessions:", error);
+      } finally {
+        draining = false;
+      }
+    };
+
+    // (a) Drain on mount.
+    drainPendingSessions();
+
+    // (b) Drain whenever the native service signals a new captured session.
+    const eventEmitter = new NativeEventEmitter(ChatAccessibility);
+    const subscription = eventEmitter.addListener("ChatSessionEvent", () => {
+      drainPendingSessions();
+    });
+
+    // (c) Drain when the app returns to the foreground (retry on resume).
+    const appStateSub = AppState.addEventListener("change", (state) => {
+      if (state === "active") drainPendingSessions();
+    });
+
+    return () => {
+      subscription.remove();
+      appStateSub.remove();
+    };
   }, []);
 
 

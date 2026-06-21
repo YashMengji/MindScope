@@ -40,6 +40,35 @@ public class ChatAccessibilityModule extends ReactContextBaseJavaModule {
     }
 
     /**
+     * Returns all pending captured sessions from the durable outbox as a JSON
+     * array string. JS processes each and calls removePendingSession on success.
+     */
+    @ReactMethod
+    public void getPendingSessions(Promise promise) {
+        try {
+            String json = OutboxStore.getAllAsJson(getReactApplicationContext());
+            promise.resolve(json);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to read pending sessions", e);
+            promise.reject("OUTBOX_READ_ERROR", "Could not read pending sessions.", e);
+        }
+    }
+
+    /**
+     * Removes a delivered session from the outbox so it isn't retried.
+     */
+    @ReactMethod
+    public void removePendingSession(String sessionId, Promise promise) {
+        try {
+            OutboxStore.remove(getReactApplicationContext(), sessionId);
+            promise.resolve(true);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to remove pending session " + sessionId, e);
+            promise.reject("OUTBOX_REMOVE_ERROR", "Could not remove pending session.", e);
+        }
+    }
+
+    /**
      * Opens the Android Accessibility Settings page.
      */
     @ReactMethod

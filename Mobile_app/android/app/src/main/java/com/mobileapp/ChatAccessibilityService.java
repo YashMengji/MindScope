@@ -36,7 +36,10 @@ public class ChatAccessibilityService extends AccessibilityService {
     // Last message typed in the EditText, used to report "Sent" messages
     private String lastTypedMessage = null;
     private long lastClearTimestamp = 0;
-    private static final long SESSION_TIMEOUT = 20 * 1000; // 3 mins in ms
+    // Safety cap only: a session normally ends when WhatsApp leaves the
+    // foreground (see idleCheckRunnable). This prevents an unbounded session if
+    // the foreground check never fires.
+    private static final long SESSION_TIMEOUT = 5 * 60 * 1000; // 5 mins in ms
     private long sessionStartTime = -1;
     private long lastMessageTime = -1;
     private static final String TARGET_APP = "com.whatsapp";
@@ -173,14 +176,62 @@ public class ChatAccessibilityService extends AccessibilityService {
             // Process WhatsApp-specific events
             if (eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) {
                 handleTextChanged(event, currentTime);
+            } else if (eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
+                // Primary send detection: the user tapped the send button.
+                if (isSendButtonEvent(event)) {
+                    Log.d(TAG, "Send button click detected");
+                    captureSentMessage(lastTypedMessage, currentTime);
+                    lastTypedMessage = null;
+                }
             } else if (eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
+                // Fallback send detection: list scrolled right after typing.
                 if (lastTypedMessage != null) {
-                    Log.d(TAG, "Send button detected");
-                    currentMessages.add(lastTypedMessage);
+                    Log.d(TAG, "Send inferred from scroll");
+                    captureSentMessage(lastTypedMessage, currentTime);
                     lastTypedMessage = null;
                 }
             }
         }
+    }
+
+    /**
+     * Returns true if the clicked node looks like WhatsApp's send button. Matched
+     * defensively by view-id suffix so a resource-id change is less likely to break it.
+     */
+    private boolean isSendButtonEvent(AccessibilityEvent event) {
+        AccessibilityNodeInfo source = event.getSource();
+        if (source == null) return false;
+        try {
+            CharSequence id = source.getViewIdResourceName();
+            if (id == null) return false;
+            String idStr = id.toString();
+            // WhatsApp send button is "com.whatsapp:id/send".
+            return idStr.endsWith("/send") || idStr.endsWith(":id/send");
+        } catch (Exception e) {
+            return false;
+        } finally {
+            try { source.recycle(); } catch (Exception ignored) {}
+        }
+    }
+
+    /**
+     * Records a sent message into the current session, guarding against the
+     * click/clear/scroll detectors firing for the same send within DEDUP_WINDOW_MS.
+     */
+    private void captureSentMessage(String message, long currentTime) {
+        if (message == null) return;
+        String trimmed = message.trim();
+        if (trimmed.isEmpty()) return;
+
+        Long lastSeen = recentMessages.get(trimmed);
+        if (lastSeen != null && (currentTime - lastSeen) < DEDUP_WINDOW_MS) {
+            Log.d(TAG, "Duplicate send ignored: " + trimmed);
+            return;
+        }
+        recentMessages.put(trimmed, currentTime);
+        currentMessages.add(message);
+        lastMessageTime = currentTime;
+        Log.d(TAG, "Captured sent message: " + message);
     }
 
 
@@ -189,11 +240,26 @@ public class ChatAccessibilityService extends AccessibilityService {
         AccessibilityNodeInfo nodeInfo = event.getSource();
         if (nodeInfo != null && nodeInfo.getClassName() != null &&
             nodeInfo.getClassName().toString().contains("EditText")) {
-            if (nodeInfo.getText() != null) {
-                lastTypedMessage = nodeInfo.getText().toString();
-                lastMessageTime = currentTime;
-                Log.d(TAG, "Typing... : " + lastTypedMessage);
+            CharSequence text = nodeInfo.getText();
+            String newText = (text != null) ? text.toString() : "";
+
+            int oldLen = (lastTypedMessage != null) ? lastTypedMessage.length() : 0;
+            int newLen = newText.length();
+
+            // Secondary send detection: the input box clearing in a single event
+            // (more than one char dropping straight to empty) means the message was
+            // sent. This catches Enter-key sends and is resilient across WhatsApp
+            // versions. A 1->0 drop is treated as normal backspacing, not a send.
+            if (oldLen > 1 && newLen == 0) {
+                Log.d(TAG, "Send inferred from input clear");
+                captureSentMessage(lastTypedMessage, currentTime);
+                lastTypedMessage = null;
+                return;
             }
+
+            lastTypedMessage = newText;
+            lastMessageTime = currentTime;
+            Log.d(TAG, "Typing... : " + lastTypedMessage);
         }
     }
 
@@ -203,6 +269,8 @@ public class ChatAccessibilityService extends AccessibilityService {
         lastWhatsAppEventTime = sessionStartTime; // Initialize
         lastMessageTime = sessionStartTime;
         currentMessages = new ArrayList<>();
+        lastTypedMessage = null;
+        recentMessages.clear(); // bound the dedup map to a single session
         Log.d(TAG, "New session started at " + sessionStartTime);
     }
 
@@ -225,8 +293,16 @@ public class ChatAccessibilityService extends AccessibilityService {
         long endTime = System.currentTimeMillis();
 
         try {
-            // Encapsulate data
+            String sessionId = sessionStartTime + "-" + endTime;
+
+            // Always persist to the durable outbox FIRST so the session survives a
+            // null/dead RN bridge or the app being killed. JS drains the outbox and
+            // removes each session only after the backend confirms success.
+            OutboxStore.add(this, sessionId, sessionStartTime, endTime, currentMessages);
+
+            // If the bridge is alive, emit purely as a "wake up and drain" trigger.
             WritableMap sessionData = Arguments.createMap();
+            sessionData.putString("sessionId", sessionId);
             sessionData.putDouble("startTimestamp", sessionStartTime);
             sessionData.putDouble("endTimestamp", endTime);
 
@@ -238,7 +314,7 @@ public class ChatAccessibilityService extends AccessibilityService {
 
             sendEventToReactNative(sessionData);
 
-            Log.d(TAG, "Session ended: " + sessionData.toString());
+            Log.d(TAG, "Session ended & queued: " + sessionId);
         }catch (Exception e) {
             Log.e(TAG, "Error ending session: " + e.getMessage(), e);
         } finally {
@@ -266,6 +342,20 @@ public class ChatAccessibilityService extends AccessibilityService {
     public void onDestroy() {
         // Stop idle checking
         idleHandler.removeCallbacks(idleCheckRunnable);
+
+        // Flush any in-progress session to the durable outbox so a service kill
+        // doesn't lose captured messages.
+        try {
+            if (sessionStartTime != -1 && currentMessages != null && !currentMessages.isEmpty()) {
+                long endTime = System.currentTimeMillis();
+                String sessionId = sessionStartTime + "-" + endTime;
+                OutboxStore.add(this, sessionId, sessionStartTime, endTime, currentMessages);
+                Log.d(TAG, "Flushed in-progress session on destroy: " + sessionId);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error flushing session on destroy: " + e.getMessage(), e);
+        }
+
         super.onDestroy();
     }
 }
