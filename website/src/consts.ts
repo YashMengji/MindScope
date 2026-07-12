@@ -1,7 +1,7 @@
 // Central site configuration and shared constants.
 // Update SITE_URL to your deployed Vercel domain before/after first deploy.
 
-export const SITE_URL = "https://website-seven-alpha-84.vercel.app";
+export const SITE_URL = "https://mindscope-app.vercel.app";
 
 export const SITE_NAME = "MindScope";
 export const TAGLINE = "Your AI-powered companion for mental health monitoring.";
