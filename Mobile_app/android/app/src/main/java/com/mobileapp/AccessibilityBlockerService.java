@@ -452,7 +452,11 @@ public class AccessibilityBlockerService extends AccessibilityService {
             btnBg.setColor(Color.rgb(99, 102, 241));
             btnBg.setCornerRadius(32f);
             closeBtn.setBackground(btnBg);
-            closeBtn.setOnClickListener(v -> dismissOverlay());
+            closeBtn.setOnClickListener(v -> {
+                dismissOverlay();
+                // Press the Home button so the user exits the blocked app automatically
+                performGlobalAction(GLOBAL_ACTION_HOME);
+            });
             card.addView(closeBtn);
 
             root.addView(card);
