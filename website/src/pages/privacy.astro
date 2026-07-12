@@ -1,0 +1,124 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { SITE_NAME, AUTHOR_EMAIL, APP_VERSION } from "../consts";
+const updated = "July 2026";
+---
+
+<BaseLayout
+  title="Privacy Policy"
+  description="How MindScope handles your data: what the accessibility services access, what is sent for AI analysis, and how it's stored."
+  path="/privacy"
+>
+  <section class="hero-gradient">
+    <div class="mx-auto max-w-4xl px-5 py-16 text-center">
+      <h1 class="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+        Privacy Policy
+      </h1>
+      <p class="mt-4 text-sm text-white/80">Last updated: {updated}</p>
+    </div>
+  </section>
+
+  <article class="mx-auto max-w-3xl px-5 py-14">
+    <div
+      class="mb-10 rounded-2xl border border-sky/20 bg-sky-pale/20 p-5 text-sm leading-relaxed text-navy-soft"
+    >
+      <strong class="text-navy">In plain terms:</strong> MindScope needs powerful
+      Android permissions to do its job. It reads on-screen content to detect blocked
+      sections and to check chats for harmful language. This page explains exactly what
+      it accesses, what leaves your device, and why.
+    </div>
+
+    <div class="space-y-10 text-navy-soft">
+      <section>
+        <h2 class="text-xl font-bold text-navy">1. What MindScope accesses</h2>
+        <ul class="mt-3 space-y-2.5 text-sm leading-relaxed">
+          <li>
+            <strong class="text-navy">On-screen section detection.</strong> The
+            Accessibility Service reads the currently visible screen only to
+            recognise which section of a supported app (Instagram, YouTube,
+            WhatsApp) is open, so it can show the blocking overlay.
+          </li>
+          <li>
+            <strong class="text-navy">Chat text.</strong> When chat analysis is
+            enabled, message text from monitored conversations is captured so it
+            can be scored for harmful/toxic language.
+          </li>
+          <li>
+            <strong class="text-navy">App usage timing.</strong> For screen-time
+            control, the app tracks how long selected apps are used to enforce
+            your limits.
+          </li>
+          <li>
+            <strong class="text-navy">Account details.</strong> Your email and a
+            securely hashed password are used to create and access your account.
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold text-navy">2. What leaves your device</h2>
+        <p class="mt-3 text-sm leading-relaxed">
+          Section detection and screen-time enforcement run <strong class="text-navy"
+            >entirely on your device</strong
+          >. For chat analysis, captured message text is sent over an encrypted
+          connection to MindScope's backend and to Google's Gemini AI to compute a
+          toxicity score and feedback. The resulting scores and your analytics are
+          stored against your account so you can view trends over time.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold text-navy">3. Third-party processing</h2>
+        <p class="mt-3 text-sm leading-relaxed">
+          Chat and voice content submitted for analysis is processed by Google's
+          Gemini API. That processing is subject to Google's applicable terms and
+          privacy practices. MindScope does not sell your data or use it for
+          advertising.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold text-navy">4. Data storage &amp; security</h2>
+        <ul class="mt-3 space-y-2.5 text-sm leading-relaxed">
+          <li>Passwords are hashed (bcrypt); the app never stores them in plain text.</li>
+          <li>Authentication uses signed tokens (JWT) kept in secure device storage.</li>
+          <li>Analysis results and analytics are stored in the app's backend database.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold text-navy">5. Permissions you grant</h2>
+        <p class="mt-3 text-sm leading-relaxed">
+          MindScope asks for Accessibility Service access and, on some devices,
+          autostart / battery / pop-up permissions so it can run reliably in the
+          background. You can revoke any of these at any time in your Android
+          settings — some features will stop working until they're re-enabled.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold text-navy">6. Your control</h2>
+        <p class="mt-3 text-sm leading-relaxed">
+          Every feature is opt-in and individually toggleable. Turn off chat
+          analysis and no message text is captured or sent. Uninstalling the app
+          removes its on-device data.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold text-navy">7. Contact</h2>
+        <p class="mt-3 text-sm leading-relaxed">
+          Questions about privacy? Email
+          <a href={`mailto:${AUTHOR_EMAIL}`} class="font-semibold text-sky hover:underline">
+            {AUTHOR_EMAIL}
+          </a>.
+        </p>
+      </section>
+
+      <p class="border-t border-slate-200 pt-6 text-xs text-muted">
+        This policy applies to {SITE_NAME} for Android (v{APP_VERSION}). It may be
+        updated as the app evolves; material changes will be reflected on this page.
+      </p>
+    </div>
+  </article>
+</BaseLayout>

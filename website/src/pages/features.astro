@@ -1,0 +1,189 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import DownloadButton from "../components/DownloadButton.astro";
+
+const pillars = [
+  {
+    id: "section-blocker",
+    accent: "#6366f1",
+    icon: "🛡️",
+    name: "Section Blocker",
+    tagline:
+      "Blocks the infinite-scroll traps inside apps you still want to use.",
+    body: "An on-device accessibility service detects the moment a distracting section opens and shows a calm, full-screen overlay with a rotating motivational message — then returns you home. It doesn't ban the whole app, just the parts engineered to keep you hooked. Every section is an individual toggle.",
+    groups: [
+      { app: "Instagram", color: "#e1306c", items: ["Stories", "Reels", "Explore tab"] },
+      {
+        app: "YouTube",
+        color: "#ff0000",
+        items: ["Shorts", "Video search", "Picture-in-Picture", "Comments"],
+      },
+      { app: "WhatsApp", color: "#25d366", items: ["Status", "Channels"] },
+    ],
+  },
+  {
+    id: "chat-analysis",
+    accent: "#4a90e2",
+    icon: "💬",
+    name: "Chat & Voice Analysis",
+    tagline: "AI safety alerts for harmful language.",
+    body: "MindScope's chat monitor captures conversation text and scores it for toxicity using Google Gemini, then surfaces real-time safety alerts and constructive feedback. Processing runs through a secure backend and results are tied to your account so nothing is analyzed twice.",
+    bullets: [
+      "Toxicity scoring powered by Google Gemini",
+      "Real-time alerts when harmful language is detected",
+      "At-least-once, deduplicated processing — reliable, not spammy",
+      "Voice-message analysis (beta)",
+    ],
+  },
+  {
+    id: "screen-time",
+    accent: "#10b981",
+    icon: "⏳",
+    name: "Screen-time Control",
+    tagline: "Honest limits that actually hold.",
+    body: "Pick any app and set a daily limit, a per-session limit, and a cooldown. When you hit the limit, the screen controller steps in to help you stop — reducing the mindless reach-for-the-phone loop.",
+    bullets: [
+      "Per-app daily usage limits",
+      "Per-session time caps",
+      "Cooldown enforcement between sessions",
+      "Choose exactly which apps to govern",
+    ],
+  },
+  {
+    id: "analytics",
+    accent: "#007acc",
+    icon: "📊",
+    name: "Analytics & Insights",
+    tagline: "See your progress, not just your slip-ups.",
+    body: "Trend charts show how your chat toxicity changes over time, alongside stats like average toxicity and number of safe chats. The point isn't to shame — it's to make progress visible and keep you motivated.",
+    bullets: [
+      "Toxicity trend charts over time",
+      "Average-toxicity and safe-chat stats",
+      "Constructive, non-judgmental feedback",
+      "Voice toxicity breakdowns",
+    ],
+  },
+];
+---
+
+<BaseLayout
+  title="Features"
+  description="How MindScope works: Section Blocker, AI chat analysis, screen-time control, and progress analytics."
+  path="/features"
+>
+  <!-- Header -->
+  <section class="hero-gradient">
+    <div class="mx-auto max-w-4xl px-5 py-20 text-center">
+      <h1 class="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+        Everything MindScope does
+      </h1>
+      <p class="mx-auto mt-5 max-w-2xl text-lg text-white/90">
+        Four features that work together — on-device blocking plus AI insight —
+        to help you build a healthier relationship with your phone.
+      </p>
+    </div>
+  </section>
+
+  <!-- Pillars -->
+  <div class="mx-auto max-w-4xl px-5 py-16">
+    {
+      pillars.map((p, i) => (
+        <section id={p.id} class:list={[i > 0 && "mt-16 border-t border-slate-200 pt-16"]}>
+          <div class="flex items-center gap-4">
+            <div
+              class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl"
+              style={`background:${p.accent}1a;color:${p.accent}`}
+            >
+              {p.icon}
+            </div>
+            <div>
+              <h2 class="text-2xl font-bold text-navy sm:text-3xl">{p.name}</h2>
+              <p class="text-sm font-medium" style={`color:${p.accent}`}>
+                {p.tagline}
+              </p>
+            </div>
+          </div>
+
+          <p class="mt-6 text-base leading-relaxed text-navy-soft">{p.body}</p>
+
+          {p.groups && (
+            <div class="mt-8 grid gap-5 sm:grid-cols-3">
+              {p.groups.map((g) => (
+                <div class="rounded-2xl border border-slate-200 p-5">
+                  <div class="text-lg font-bold" style={`color:${g.color}`}>
+                    {g.app}
+                  </div>
+                  <ul class="mt-3 space-y-1.5">
+                    {g.items.map((it) => (
+                      <li class="flex items-center gap-2 text-sm text-navy-soft">
+                        <span
+                          class="h-1.5 w-1.5 rounded-full"
+                          style={`background:${g.color}`}
+                        />
+                        {it}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {p.bullets && (
+            <ul class="mt-6 grid gap-3 sm:grid-cols-2">
+              {p.bullets.map((b) => (
+                <li class="flex items-start gap-2.5 text-sm text-navy-soft">
+                  <svg
+                    class="mt-0.5 h-5 w-5 shrink-0"
+                    style={`color:${p.accent}`}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  {b}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ))
+    }
+  </div>
+
+  <!-- Permissions note -->
+  <section class="bg-surface">
+    <div class="mx-auto max-w-4xl px-5 py-14">
+      <div class="rounded-2xl border border-slate-200 bg-white p-7">
+        <h2 class="text-xl font-bold text-navy">A note on permissions</h2>
+        <p class="mt-3 text-sm leading-relaxed text-navy-soft">
+          MindScope relies on Android's Accessibility Services to detect
+          on-screen sections, monitor chats, and enforce screen-time limits. It
+          may also ask for autostart, battery, and pop-up permissions on some
+          devices (e.g. Xiaomi/MIUI) so it can keep working in the background.
+          These are powerful permissions — the app uses them only to deliver the
+          features above. See the
+          <a href="/privacy" class="font-semibold text-sky hover:underline">
+            Privacy Policy
+          </a>
+          for exactly what is accessed.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="mx-auto max-w-4xl px-5 py-20 text-center">
+    <h2 class="text-3xl font-bold text-navy">Give it a try</h2>
+    <p class="mx-auto mt-4 max-w-lg text-navy-soft">
+      Install MindScope and turn on only the features you want.
+    </p>
+    <div class="mt-8 flex justify-center">
+      <DownloadButton />
+    </div>
+  </section>
+</BaseLayout>

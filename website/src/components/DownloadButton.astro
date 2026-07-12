@@ -1,0 +1,49 @@
+---
+import { APK_URL, APP_VERSION, APK_SIZE } from "../consts";
+
+interface Props {
+  /** "primary" (light bg) or "onDark" (over the gradient hero) */
+  variant?: "primary" | "onDark";
+  class?: string;
+}
+const { variant = "primary", class: className = "" } = Astro.props;
+
+const base =
+  "group inline-flex items-center gap-3 rounded-xl px-6 py-3.5 font-semibold shadow-lg transition-all hover:-translate-y-0.5";
+const styles =
+  variant === "onDark"
+    ? "bg-white text-navy-dark hover:shadow-xl"
+    : "bg-navy-dark text-white hover:bg-navy hover:shadow-xl";
+---
+
+<a
+  href={APK_URL}
+  class:list={[base, styles, className]}
+  aria-label={`Download MindScope APK version ${APP_VERSION} for Android`}
+>
+  <svg
+    class="h-6 w-6"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" y1="15" x2="12" y2="3" />
+  </svg>
+  <span class="flex flex-col leading-tight">
+    <span>Download for Android</span>
+    <span
+      class:list={[
+        "text-xs font-normal opacity-70",
+        variant === "onDark" ? "text-navy-soft" : "text-white/80",
+      ]}
+    >
+      v{APP_VERSION} · APK · {APK_SIZE}
+    </span>
+  </span>
+</a>

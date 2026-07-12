@@ -1,0 +1,84 @@
+---
+import { SITE_NAME, NAV_LINKS, APK_URL } from "../consts";
+const current = Astro.url.pathname;
+const isActive = (href: string) =>
+  href === "/" ? current === "/" : current.startsWith(href);
+---
+
+<header
+  class="sticky top-0 z-50 border-b border-slate-200/70 bg-white/85 backdrop-blur-md"
+>
+  <nav
+    class="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5"
+    aria-label="Primary"
+  >
+    <a href="/" class="flex items-center gap-2.5">
+      <img src="/icon.png" alt="" class="h-9 w-9 rounded-xl" width="36" height="36" />
+      <span class="text-lg font-bold tracking-tight text-navy">{SITE_NAME}</span>
+    </a>
+
+    <div class="hidden items-center gap-1 md:flex">
+      {
+        NAV_LINKS.map((link) => (
+          <a
+            href={link.href}
+            class:list={[
+              "rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              isActive(link.href)
+                ? "text-sky bg-sky-pale/40"
+                : "text-navy-soft hover:text-navy hover:bg-slate-100",
+            ]}
+            aria-current={isActive(link.href) ? "page" : undefined}
+          >
+            {link.label}
+          </a>
+        ))
+      }
+      <a
+        href={APK_URL}
+        class="ml-2 rounded-lg bg-navy-dark px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-navy"
+      >
+        Download
+      </a>
+    </div>
+
+    <!-- Mobile: details/summary disclosure (no JS needed) -->
+    <details class="relative md:hidden">
+      <summary
+        class="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-lg text-navy hover:bg-slate-100 [&::-webkit-details-marker]:hidden"
+        aria-label="Open menu"
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="4" y1="7" x2="20" y2="7" />
+          <line x1="4" y1="12" x2="20" y2="12" />
+          <line x1="4" y1="17" x2="20" y2="17" />
+        </svg>
+      </summary>
+      <div
+        class="absolute right-0 mt-2 w-52 rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
+      >
+        {
+          NAV_LINKS.map((link) => (
+            <a
+              href={link.href}
+              class:list={[
+                "block rounded-lg px-3 py-2 text-sm font-medium",
+                isActive(link.href)
+                  ? "text-sky bg-sky-pale/40"
+                  : "text-navy-soft hover:bg-slate-100",
+              ]}
+            >
+              {link.label}
+            </a>
+          ))
+        }
+        <a
+          href={APK_URL}
+          class="mt-1 block rounded-lg bg-navy-dark px-3 py-2 text-center text-sm font-semibold text-white"
+        >
+          Download APK
+        </a>
+      </div>
+    </details>
+  </nav>
+</header>

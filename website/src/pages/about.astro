@@ -1,0 +1,114 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import DownloadButton from "../components/DownloadButton.astro";
+import {
+  AUTHOR_NAME,
+  AUTHOR_LOCATION,
+  AUTHOR_EMAIL,
+  GITHUB_URL,
+} from "../consts";
+
+const stack = [
+  { label: "Mobile app", value: "React Native (Expo) + native Android accessibility services" },
+  { label: "API server", value: "Node.js + Express + MongoDB" },
+  { label: "AI microservice", value: "Python + FastAPI + Google Gemini" },
+  { label: "Hosting", value: "Render (backends) · Vercel (this site)" },
+];
+---
+
+<BaseLayout
+  title="About"
+  description={`MindScope is built by ${AUTHOR_NAME}. The story behind the app and the tech that powers it.`}
+  path="/about"
+>
+  <section class="hero-gradient">
+    <div class="mx-auto max-w-4xl px-5 py-20 text-center">
+      <h1 class="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+        About MindScope
+      </h1>
+      <p class="mx-auto mt-5 max-w-2xl text-lg text-white/90">
+        A personal project with a simple goal: help people spend less time being
+        farmed for attention, and more time living.
+      </p>
+    </div>
+  </section>
+
+  <div class="mx-auto max-w-3xl px-5 py-16">
+    <!-- Story -->
+    <section>
+      <h2 class="text-2xl font-bold text-navy">The story</h2>
+      <div class="mt-4 space-y-4 text-base leading-relaxed text-navy-soft">
+        <p>
+          Modern apps are engineered to capture attention. Reels, Shorts,
+          Status, endless comment threads — each is designed to keep you
+          scrolling well past the point you meant to stop. MindScope started as a
+          question: what if your phone helped you honour your own boundaries
+          instead of eroding them?
+        </p>
+        <p>
+          Rather than a blunt app-blocker, MindScope surgically pauses only the
+          sections built to hook you, and adds a calm, mindful moment before you
+          continue. Over time it grew to include AI-powered chat safety,
+          screen-time limits, and analytics — a complete companion for a
+          healthier digital life.
+        </p>
+      </div>
+    </section>
+
+    <!-- Author -->
+    <section class="mt-14 rounded-2xl border border-slate-200 bg-surface p-7">
+      <h2 class="text-2xl font-bold text-navy">Built by {AUTHOR_NAME}</h2>
+      <p class="mt-3 text-base leading-relaxed text-navy-soft">
+        MindScope is designed, built, and maintained by {AUTHOR_NAME}, based in {
+          AUTHOR_LOCATION
+        }. It's an independent project spanning a React Native app, two backend
+        services, and an AI inference layer.
+      </p>
+      <div class="mt-5 flex flex-wrap gap-3">
+        <a
+          href={GITHUB_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center gap-2 rounded-lg bg-navy-dark px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-navy"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 2C6.48 2 2 6.48 2 12c0 4.42 2.87 8.17 6.84 9.5.5.09.68-.22.68-.48 0-.24-.01-.87-.01-1.7-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.89 1.53 2.34 1.09 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02.8-.22 1.65-.33 2.5-.33.85 0 1.7.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.94.36.31.68.92.68 1.85 0 1.34-.01 2.42-.01 2.75 0 .27.18.58.69.48A10.01 10.01 0 0 0 22 12c0-5.52-4.48-10-10-10z" />
+          </svg>
+          View on GitHub
+        </a>
+        <a
+          href={`mailto:${AUTHOR_EMAIL}`}
+          class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-navy transition-colors hover:bg-slate-100"
+        >
+          Get in touch
+        </a>
+      </div>
+    </section>
+
+    <!-- Tech stack -->
+    <section class="mt-14">
+      <h2 class="text-2xl font-bold text-navy">Under the hood</h2>
+      <dl class="mt-5 divide-y divide-slate-200 rounded-2xl border border-slate-200">
+        {
+          stack.map((s) => (
+            <div class="flex flex-col gap-1 p-4 sm:flex-row sm:gap-6">
+              <dt class="w-40 shrink-0 text-sm font-semibold text-navy">
+                {s.label}
+              </dt>
+              <dd class="text-sm text-navy-soft">{s.value}</dd>
+            </div>
+          ))
+        }
+      </dl>
+    </section>
+  </div>
+
+  <section class="bg-surface">
+    <div class="mx-auto max-w-4xl px-5 py-16 text-center">
+      <h2 class="text-2xl font-bold text-navy">Try MindScope</h2>
+      <div class="mt-6 flex justify-center">
+        <DownloadButton />
+      </div>
+    </div>
+  </section>
+</BaseLayout>

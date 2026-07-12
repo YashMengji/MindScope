@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+/* MindScope brand tokens — pulled from the app's real palette.
+   Exposed as Tailwind utilities (e.g. bg-navy, text-accent, from-brand-600). */
+@theme {
+  /* Deep navy scale (primary) */
+  --color-navy: #0a2e5b;
+  --color-navy-dark: #003366;
+  --color-navy-soft: #2c4a6e;
+
+  /* Accent blues */
+  --color-accent: #4a90e2;
+  --color-sky: #007acc;
+  --color-sky-light: #66ade6;
+  --color-sky-pale: #ccedff;
+
+  /* Digital-wellbeing indigo (blocker overlay accent) */
+  --color-indigo-brand: #6366f1;
+
+  /* Neutrals */
+  --color-surface: #f8f9fa;
+  --color-muted: #9ca3af;
+  --color-ink: #333333;
+
+  /* Third-party app accents */
+  --color-instagram: #e1306c;
+  --color-youtube: #ff0000;
+  --color-whatsapp: #25d366;
+
+  /* Semantic */
+  --color-success: #10b981;
+  --color-danger: #ef4444;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Reusable hero gradient matching the app landing screen */
+.hero-gradient {
+  background: linear-gradient(
+    160deg,
+    #003366 0%,
+    #007acc 45%,
+    #66ade6 78%,
+    #ccedff 100%
+  );
+}
+
+.text-gradient {
+  background: linear-gradient(90deg, #003366, #007acc, #4a90e2);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}

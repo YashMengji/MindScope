@@ -1,0 +1,143 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import DownloadButton from "../components/DownloadButton.astro";
+import FeatureCard from "../components/FeatureCard.astro";
+import MindfulMessages from "../components/MindfulMessages.astro";
+import { SITE_NAME, TAGLINE, APP_VERSION } from "../consts";
+---
+
+<BaseLayout path="/">
+  <!-- Hero -->
+  <section class="hero-gradient relative overflow-hidden">
+    <div
+      class="mx-auto flex max-w-6xl flex-col items-center px-5 py-20 text-center sm:py-28"
+    >
+      <img
+        src="/logo.png"
+        alt={`${SITE_NAME} logo`}
+        class="h-20 w-auto drop-shadow-lg sm:h-24"
+        width="200"
+        height="96"
+      />
+      <span
+        class="mt-8 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 text-sm font-medium text-white backdrop-blur-sm"
+      >
+        <span class="h-2 w-2 rounded-full bg-success"></span>
+        Android · Free · v{APP_VERSION}
+      </span>
+      <h1
+        class="mt-6 max-w-3xl text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-6xl"
+      >
+        Take back control of your attention
+      </h1>
+      <p class="mt-5 max-w-2xl text-lg leading-relaxed text-white/90 sm:text-xl">
+        {TAGLINE} MindScope blocks the endless-scroll traps in your favourite apps,
+        watches for harmful chats, and keeps your screen time honest.
+      </p>
+      <div class="mt-10 flex flex-col items-center gap-4 sm:flex-row">
+        <DownloadButton variant="onDark" />
+        <a
+          href="/features"
+          class="inline-flex items-center gap-2 rounded-xl border border-white/40 px-6 py-3.5 font-semibold text-white transition-colors hover:bg-white/10"
+        >
+          Explore features
+          <span aria-hidden="true">→</span>
+        </a>
+      </div>
+      <p class="mt-6 text-xs text-white/70">
+        No account needed to install · Works on Android 8.0 and newer
+      </p>
+    </div>
+  </section>
+
+  <!-- Four pillars -->
+  <section class="mx-auto max-w-6xl px-5 py-20">
+    <div class="mx-auto max-w-2xl text-center">
+      <h2 class="text-3xl font-bold text-navy sm:text-4xl">
+        One app, four ways to protect your focus
+      </h2>
+      <p class="mt-4 text-base leading-relaxed text-navy-soft">
+        MindScope combines on-device Android accessibility with AI analysis to
+        help you build healthier digital habits.
+      </p>
+    </div>
+
+    <div class="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <FeatureCard title="Section Blocker" accent="#6366f1" icon="🛡️">
+        Detects when a distracting section — Instagram Reels, YouTube Shorts,
+        WhatsApp Status — opens, and shows a mindful overlay to help you stay
+        focused.
+      </FeatureCard>
+      <FeatureCard title="Chat Analysis" accent="#4a90e2" icon="💬">
+        Analyzes your messages with AI to detect harmful language and give you
+        real-time safety alerts.
+      </FeatureCard>
+      <FeatureCard title="Screen-time Control" accent="#10b981" icon="⏳">
+        Monitors app usage time and enforces daily &amp; per-session limits to help
+        you reduce screen addiction.
+      </FeatureCard>
+      <FeatureCard title="Analytics" accent="#007acc" icon="📊">
+        Tracks toxicity trends and safe-chat stats over time, with constructive
+        feedback so you can see real progress.
+      </FeatureCard>
+    </div>
+
+    <div class="mt-12 text-center">
+      <a
+        href="/features"
+        class="inline-flex items-center gap-2 font-semibold text-sky transition-colors hover:text-navy"
+      >
+        See how each feature works
+        <span aria-hidden="true">→</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- Mindful moments -->
+  <MindfulMessages />
+
+  <!-- Supported apps -->
+  <section class="mx-auto max-w-6xl px-5 py-20">
+    <div class="mx-auto max-w-2xl text-center">
+      <h2 class="text-3xl font-bold text-navy sm:text-4xl">
+        Built for the apps that hook you most
+      </h2>
+      <p class="mt-4 text-base leading-relaxed text-navy-soft">
+        Turn blocking on per app, per section — you stay in control of exactly
+        what gets a mindful pause.
+      </p>
+    </div>
+    <div class="mt-12 grid gap-6 sm:grid-cols-3">
+      <div class="rounded-2xl border border-slate-200 p-6 text-center">
+        <div class="text-2xl font-bold" style="color:#e1306c">Instagram</div>
+        <p class="mt-2 text-sm text-navy-soft">Stories · Reels · Explore</p>
+      </div>
+      <div class="rounded-2xl border border-slate-200 p-6 text-center">
+        <div class="text-2xl font-bold" style="color:#ff0000">YouTube</div>
+        <p class="mt-2 text-sm text-navy-soft">
+          Shorts · Search · Picture-in-Picture · Comments
+        </p>
+      </div>
+      <div class="rounded-2xl border border-slate-200 p-6 text-center">
+        <div class="text-2xl font-bold" style="color:#25d366">WhatsApp</div>
+        <p class="mt-2 text-sm text-navy-soft">Status · Channels</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Final CTA -->
+  <section class="bg-surface">
+    <div class="mx-auto max-w-4xl px-5 py-20 text-center">
+      <h2 class="text-3xl font-bold text-navy sm:text-4xl">
+        Ready to scroll with intention?
+      </h2>
+      <p class="mx-auto mt-4 max-w-xl text-base leading-relaxed text-navy-soft">
+        Install MindScope and give your mental health a check. It's free, and it
+        runs entirely on your device.
+      </p>
+      <div class="mt-8 flex justify-center">
+        <DownloadButton />
+      </div>
+    </div>
+  </section>
+</BaseLayout>
