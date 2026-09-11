@@ -3,6 +3,7 @@ import "../styles/global.css";
 import Navbar from "../components/Navbar.astro";
 import Footer from "../components/Footer.astro";
 import { SITE_NAME, DESCRIPTION, SITE_URL } from "../consts";
+import Analytics from "@vercel/analytics/astro";
 
 interface Props {
   title?: string;
@@ -55,5 +56,6 @@ const ogImage = new URL("/icon.png", SITE_URL).href;
       <slot />
     </main>
     <Footer />
+    <Analytics />
   </body>
 </html>
